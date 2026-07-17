@@ -1,0 +1,6 @@
+@ERental_HostAddress = http://localhost:5114
+
+GET {{ERental_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

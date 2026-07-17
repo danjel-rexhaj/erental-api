@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ERental.Application/ERental.Application.csproj" />
+  <Project Path="ERental.Domain/ERental.Domain.csproj" />
+  <Project Path="ERental.Infrastructure/ERental.Infrastructure.csproj" />
+  <Project Path="ERental/ERental.csproj" />
+</Solution>

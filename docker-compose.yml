@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ERental
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - erental_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=ERental;Username=postgres;Password=${POSTGRES_PASSWORD}
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ERental
+      Jwt__Audience: ERentalUsers
+      Jwt__ExpiryMinutes: 1440
+      SendGrid__ApiKey: ${SENDGRID_API_KEY}
+      SendGrid__FromEmail: noreply@erental.store
+      SendGrid__FromName: ERental
+      R2__AccessKey: ${R2_ACCESS_KEY}
+      R2__SecretKey: ${R2_SECRET_KEY}
+      R2__Endpoint: ${R2_ENDPOINT}
+      R2__BucketName: erental-photos
+      R2__PublicUrl: https://cdn.erental.store
+    ports:
+      - "8080:8080"
+
+volumes:
+  erental_db_data:

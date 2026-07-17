@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Secrets — real values live only in appsettings.Development.json locally, never committed
+**/appsettings.Development.json
+**/appsettings.*.local.json
+**/secrets.json
+.env
+.env.*
+!.env.example
+
+# Rider / VS Code
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
