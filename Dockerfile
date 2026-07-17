@@ -20,6 +20,13 @@ RUN dotnet publish ERental/ERental.csproj -c Release -o /app/publish --no-restor
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+
+# Npgsql's SSL/SCRAM negotiation against hosted Postgres (e.g. Neon) needs libgssapi,
+# which isn't included in this base image by default.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
