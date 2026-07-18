@@ -73,6 +73,22 @@ public class AnalyticsController : ControllerBase
         });
     }
 
+    private record SeriesPoint(int Year, int Month, int? Day, int Count);
+
+    private static List<SeriesPoint> BuildSeries(List<DateTime> dates, bool daily)
+    {
+        if (daily)
+            return dates.GroupBy(d => d.Date)
+                .Select(g => new SeriesPoint(g.Key.Year, g.Key.Month, g.Key.Day, g.Count()))
+                .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day)
+                .ToList();
+
+        return dates.GroupBy(d => new { d.Year, d.Month })
+            .Select(g => new SeriesPoint(g.Key.Year, g.Key.Month, null, g.Count()))
+            .OrderBy(x => x.Year).ThenBy(x => x.Month)
+            .ToList();
+    }
+
     [HttpGet("admin")]
     [Authorize]
     public async Task<IActionResult> GetAdminAnalytics(int months = 6, int? days = null)
@@ -87,27 +103,18 @@ public class AnalyticsController : ControllerBase
 
         var userDates = await _context.Users.Where(u => u.DataRegjistrimit >= since).Select(u => u.DataRegjistrimit!.Value).ToListAsync();
         var companyDates = await _context.Companies.Where(c => c.DataRegjistrimit >= since).Select(c => c.DataRegjistrimit!.Value).ToListAsync();
+        var carDates = await _context.Cars.Where(c => c.DataKrijimit >= since).Select(c => c.DataKrijimit!.Value).ToListAsync();
+        var bookingDates = await _context.Bookings.Where(b => b.DataKrijimit >= since).Select(b => b.DataKrijimit!.Value).ToListAsync();
+        var verificationDates = await _context.CompanyVerifications.Where(v => v.DataDorezimit >= since).Select(v => v.DataDorezimit!.Value).ToListAsync();
 
-        (int Year, int Month, int? Day) Key(DateTime d) => daily ? (d.Year, d.Month, d.Day) : (d.Year, d.Month, (int?)null);
-
-        var monthlyUsers = userDates.GroupBy(Key)
-            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() }).ToList();
-        var monthlyCompanies = companyDates.GroupBy(Key)
-            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() }).ToList();
-
-        var monthKeys = monthlyUsers.Select(x => (x.Year, x.Month, x.Day))
-            .Union(monthlyCompanies.Select(x => (x.Year, x.Month, x.Day)))
-            .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day)
-            .ToList();
-
-        var monthly = monthKeys.Select(m => new
+        var series = new
         {
-            m.Year,
-            m.Month,
-            m.Day,
-            Users = monthlyUsers.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month && x.Day == m.Day)?.Count ?? 0,
-            Companies = monthlyCompanies.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month && x.Day == m.Day)?.Count ?? 0
-        }).ToList();
+            users = BuildSeries(userDates, daily),
+            companies = BuildSeries(companyDates, daily),
+            cars = BuildSeries(carDates, daily),
+            bookings = BuildSeries(bookingDates, daily),
+            verifications = BuildSeries(verificationDates, daily)
+        };
 
         var totals = new
         {
@@ -125,7 +132,7 @@ public class AnalyticsController : ControllerBase
             .Take(5)
             .ToListAsync();
 
-        return Ok(new { monthly, totals, topCompanies });
+        return Ok(new { series, totals, topCompanies });
     }
 
     [HttpGet("admin/logins")]

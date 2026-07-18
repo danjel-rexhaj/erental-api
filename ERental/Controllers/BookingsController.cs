@@ -11,6 +11,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit);
+public record CancelBookingDto(string? Reason);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -262,7 +263,7 @@ public class BookingsController : ControllerBase
 
     [HttpPut("{id}/cancel")]
     [Authorize]
-    public async Task<IActionResult> CancelBooking(int id)
+    public async Task<IActionResult> CancelBooking(int id, CancelBookingDto? dto = null)
     {
         var userId = GetUserId();
 
@@ -287,7 +288,11 @@ public class BookingsController : ControllerBase
                 return BadRequest("Kane kaluar 24 ore nga rezervimi — anulimi nuk lejohet me.");
         }
 
+        if (eshteBiznesi && string.IsNullOrWhiteSpace(dto?.Reason))
+            return BadRequest("Duhet te jepesh nje arsye per refuzimin.");
+
         booking.Statusi = "cancelled";
+        if (eshteBiznesi) booking.ArsyejaRefuzimit = dto!.Reason;
 
         var block = await _context.CarAvailabilityBlocks
             .FirstOrDefaultAsync(b => b.CarId == booking.CarId && b.Shenim == $"Booking #{booking.BookingId}");
@@ -306,7 +311,7 @@ public class BookingsController : ControllerBase
                 await _emailService.SendBookingCancelledAsync(
                     booking.User.Email, booking.User.Emri,
                     $"{booking.Car.Marka} {booking.Car.Modeli}",
-                    booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), carPhotoUrl);
+                    booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), carPhotoUrl, booking.ArsyejaRefuzimit);
             }
             else
             {
@@ -323,8 +328,11 @@ public class BookingsController : ControllerBase
         {
             var targetUserId = eshteBiznesi ? booking.UserId : booking.Car.Company.OwnerUserId;
             var notifTarget = eshteBiznesi ? "client_booking" : "business_booking";
+            var notifMsg = eshteBiznesi && !string.IsNullOrWhiteSpace(booking.ArsyejaRefuzimit)
+                ? $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} u refuzua. Arsyeja: {booking.ArsyejaRefuzimit}"
+                : $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} u anulua";
             if (targetUserId != null)
-                await NotifyAsync(targetUserId.Value, "Rezervimi u anulua", $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} u anulua", booking.BookingId, notifTarget);
+                await NotifyAsync(targetUserId.Value, "Rezervimi u anulua", notifMsg, booking.BookingId, notifTarget);
         }
         catch { }
 

@@ -33,6 +33,8 @@ public partial class Company
 
     public int? OwnerUserId { get; set; }
 
+    public string? LogoUrl { get; set; }
+
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 
     public virtual ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();

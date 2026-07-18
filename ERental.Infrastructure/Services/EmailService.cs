@@ -151,8 +151,14 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingCancelledAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null)
+    public async Task SendBookingCancelledAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null, string? arsyeja = null)
     {
+        var reasonBlock = string.IsNullOrWhiteSpace(arsyeja) ? "" : $@"
+            <div style='background:#f7f7f7; border-radius:12px; padding:16px; margin:16px 0 0 0;'>
+                <p style='color:#717171; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 6px 0;'>Arsyeja</p>
+                <p style='color:#222222; font-size:14px; line-height:1.6; margin:0;'>{arsyeja}</p>
+            </div>";
+
         var body = $@"
             {CarImage(carPhotoUrl)}
 
@@ -162,7 +168,8 @@ public class EmailService : IEmailService
                 Përshëndetje <strong>{emri}</strong>, rezervimi yt për <strong>{makina}</strong> është anuluar.
             </p>
 
-            {DetailsTable(("Makina", makina), ("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit))}";
+            {DetailsTable(("Makina", makina), ("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit))}
+            {reasonBlock}";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u anulua — ERental", "", Wrap(body));
         await Client.SendEmailAsync(msg);

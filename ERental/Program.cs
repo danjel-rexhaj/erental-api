@@ -12,6 +12,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddHostedService<BookingCompletionService>();
 
 builder.Services.AddControllers()

@@ -25,6 +25,8 @@ public partial class User
 
     public bool? WhatsappVerified { get; set; }
 
+    public string? FotoProfili { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<Company> Companies { get; set; } = new List<Company>();

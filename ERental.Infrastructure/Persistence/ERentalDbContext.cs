@@ -81,6 +81,7 @@ public partial class ERentalDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'pending'::character varying")
                 .HasColumnName("statusi");
+            entity.Property(e => e.ArsyejaRefuzimit).HasColumnName("arsyeja_refuzimit");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.Car).WithMany(p => p.Bookings)
@@ -148,6 +149,13 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Pershkrimi).HasColumnName("pershkrimi");
             entity.Property(e => e.Kubatura).HasColumnName("kubatura");
             entity.Property(e => e.Cilindra).HasColumnName("cilindra");
+            entity.Property(e => e.DataKrijimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_krijimit");
+            entity.Property(e => e.Amenities)
+                .HasColumnType("text[]")
+                .HasColumnName("amenities");
 
             entity.HasOne(d => d.Company).WithMany(p => p.Cars)
                 .HasForeignKey(d => d.CompanyId)
@@ -251,6 +259,7 @@ public partial class ERentalDbContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("nipt");
             entity.Property(e => e.OwnerUserId).HasColumnName("owner_user_id");
+            entity.Property(e => e.LogoUrl).HasColumnName("logo_url");
             entity.Property(e => e.Qyteti)
                 .HasMaxLength(50)
                 .HasColumnName("qyteti");
@@ -519,6 +528,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.WhatsappVerified)
                 .HasDefaultValue(false)
                 .HasColumnName("whatsapp_verified");
+            entity.Property(e => e.FotoProfili).HasColumnName("foto_profili");
             entity.Property(e => e.Mbiemri)
                 .HasMaxLength(50)
                 .HasColumnName("mbiemri");

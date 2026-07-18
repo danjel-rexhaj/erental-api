@@ -41,6 +41,10 @@ public partial class Car
 
     public int? Cilindra { get; set; }
 
+    public DateTime? DataKrijimit { get; set; }
+
+    public string[]? Amenities { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<CarAvailabilityBlock> CarAvailabilityBlocks { get; set; } = new List<CarAvailabilityBlock>();

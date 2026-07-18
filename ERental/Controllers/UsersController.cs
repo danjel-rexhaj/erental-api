@@ -1,3 +1,4 @@
+using ERental.Application.Interfaces;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,12 @@ public record UpdateMeDto(string Emri, string Mbiemri, string? Telefoni, bool Ha
 public class UsersController : ControllerBase
 {
     private readonly ERentalDbContext _context;
-    public UsersController(ERentalDbContext context) => _context = context;
+    private readonly IFileUploadService _fileUploadService;
+    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService)
+    {
+        _context = context;
+        _fileUploadService = fileUploadService;
+    }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -36,9 +42,30 @@ public class UsersController : ControllerBase
             user.Mbiemri,
             user.Telefoni,
             user.HasWhatsapp,
+            user.FotoProfili,
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi
         });
+    }
+
+    [HttpPost("me/photo")]
+    [Authorize]
+    public async Task<IActionResult> UploadProfilePhoto(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Nuk u dergua asnje file.");
+
+        var userId = GetUserId();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+        if (user == null) return NotFound();
+
+        using var stream = file.OpenReadStream();
+        var url = await _fileUploadService.UploadAsync(stream, file.FileName, file.ContentType, $"users/{userId}");
+
+        user.FotoProfili = url;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { fotoProfili = url });
     }
 
     [HttpPut("me")]

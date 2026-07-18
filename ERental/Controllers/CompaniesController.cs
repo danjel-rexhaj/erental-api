@@ -1,4 +1,5 @@
-﻿using ERental.Infrastructure.Entities;
+﻿using ERental.Application.Interfaces;
+using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,10 +15,12 @@ public record RegisterCompanyDto(string Emri, string Email, string Telefoni, str
 public class CompaniesController : ControllerBase
 {
     private readonly ERentalDbContext _context;
+    private readonly IFileUploadService _fileUploadService;
 
-    public CompaniesController(ERentalDbContext context)
+    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService)
     {
         _context = context;
+        _fileUploadService = fileUploadService;
     }
 
     private int GetUserId() =>
@@ -109,6 +112,26 @@ public class CompaniesController : ControllerBase
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
         if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
         return Ok(company);
+    }
+
+    [HttpPost("my-company/logo")]
+    [Authorize]
+    public async Task<IActionResult> UploadLogo(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Nuk u dergua asnje file.");
+
+        var userId = GetUserId();
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        using var stream = file.OpenReadStream();
+        var url = await _fileUploadService.UploadAsync(stream, file.FileName, file.ContentType, $"companies/{company.CompanyId}");
+
+        company.LogoUrl = url;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { logoUrl = url });
     }
 
     [HttpPut("{id}/verify")]

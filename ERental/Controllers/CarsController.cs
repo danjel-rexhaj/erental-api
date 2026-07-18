@@ -11,7 +11,7 @@ public record CreateCarDto(
     int CompanyId, string Marka, string Modeli, int Viti, int Km,
     string Karburanti, string Transmisioni, string? Ngjyra, string Targa,
     string Kategoria, int NumriVendeve, bool Klimatizimi, decimal CmimiDites,
-    string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null);
+    string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -101,6 +101,7 @@ public class CarsController : ControllerBase
             Pershkrimi = dto.Pershkrimi,
             Kubatura = dto.Kubatura,
             Cilindra = dto.Cilindra,
+            Amenities = dto.Amenities,
             Statusi = "active"
         };
 
@@ -137,6 +138,7 @@ public class CarsController : ControllerBase
         car.Pershkrimi = dto.Pershkrimi;
         car.Kubatura = dto.Kubatura;
         car.Cilindra = dto.Cilindra;
+        car.Amenities = dto.Amenities;
 
         await _context.SaveChangesAsync();
         return Ok(car);
