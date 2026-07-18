@@ -91,7 +91,7 @@ public class BookingsController : ControllerBase
         try
         {
             if (klienti != null)
-                await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, carPhotoUrl);
+                await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, booking.BookingId, carPhotoUrl);
 
             if (car.Company.Email != null)
                 await _emailService.SendBookingRequestToBusinessAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
@@ -218,6 +218,11 @@ public class BookingsController : ControllerBase
                     company.Emri,
                     booking.DataFillimit.ToString(),
                     booking.DataPerfundimit.ToString(),
+                    booking.CmimiTotal,
+                    booking.BookingId,
+                    company.Adresa,
+                    company.Qyteti,
+                    company.Telefoni,
                     carPhotoUrl
                 );
             }
@@ -311,7 +316,7 @@ public class BookingsController : ControllerBase
                 await _emailService.SendBookingCancelledAsync(
                     booking.User.Email, booking.User.Emri,
                     $"{booking.Car.Marka} {booking.Car.Modeli}",
-                    booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), carPhotoUrl, booking.ArsyejaRefuzimit);
+                    booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
             }
             else
             {
@@ -319,7 +324,7 @@ public class BookingsController : ControllerBase
                     await _emailService.SendBookingCancelledAsync(
                         booking.Car.Company.Email, booking.Car.Company.Emri,
                         $"{booking.Car.Marka} {booking.Car.Modeli}",
-                        booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), carPhotoUrl);
+                        booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl);
             }
         }
         catch { }

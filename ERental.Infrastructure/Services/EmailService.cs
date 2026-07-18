@@ -17,28 +17,58 @@ public class EmailService : IEmailService
     private SendGridClient Client => new(_config["SendGrid:ApiKey"]);
     private EmailAddress From => new(_config["SendGrid:FromEmail"], _config["SendGrid:FromName"]);
 
-    private string Wrap(string bodyHtml) => $@"
+    private static readonly string[] Dite = { "Hënë", "Martë", "Mërkurë", "Enjte", "Premte", "Shtunë", "Diel" };
+    private static readonly string[] Muaj = { "Janar", "Shkurt", "Mars", "Prill", "Maj", "Qershor", "Korrik", "Gusht", "Shtator", "Tetor", "Nëntor", "Dhjetor" };
+
+    private static string FormatDate(string raw)
+    {
+        if (!DateOnly.TryParse(raw, out var d)) return raw;
+        int dow = ((int)d.DayOfWeek + 6) % 7;
+        return $"{Dite[dow]}, {d.Day} {Muaj[d.Month - 1]} {d.Year}";
+    }
+
+    private static string Confirmim(int bookingId) => $"ER-{bookingId:D6}";
+
+    private static string MapsLink(string address, string city) =>
+        $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString($"{address}, {city}, Shqipëri")}";
+
+    // ---- layout shell ----------------------------------------------------
+
+    private string Wrap(string bodyHtml, string preheader = "")
+    {
+        var preheaderHtml = string.IsNullOrEmpty(preheader) ? "" : $@"
+          <div style='display:none; max-height:0; overflow:hidden; mso-hide:all;'>{preheader}</div>";
+
+        return $@"
+        {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='padding:32px 40px 24px 40px; border-bottom:1px solid #ebebeb;'>
-            <span style='font-size:20px; font-weight:700; color:#111111; letter-spacing:-0.3px;'>ERental</span>
+          <div style='padding:28px 40px; border-bottom:1px solid #ebebeb;'>
+            <span style='font-size:19px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
           </div>
 
           <div style='padding:40px;'>
               {bodyHtml}
           </div>
 
-          <div style='padding:24px 40px; border-top:1px solid #ebebeb;'>
+          <div style='padding:28px 40px 32px 40px; border-top:1px solid #ebebeb;'>
+            <p style='color:#111111; font-size:13px; font-weight:700; margin:0 0 4px 0;'>ERental Albania</p>
+            <p style='color:#767676; font-size:12px; line-height:1.6; margin:0 0 12px 0;'>
+                Platforma që lidh biznese të verifikuara të makinave me qera me klientët në të gjithë Shqipërinë.
+            </p>
             <p style='color:#767676; font-size:12px; line-height:1.6; margin:0;'>
-                ERental Albania · Platforma e makinave me qera<br/>
                 <a href='mailto:info@erental.store' style='color:#767676; text-decoration:underline;'>info@erental.store</a>
+                &nbsp;·&nbsp; Ky email u dërgua sepse ke një veprim aktiv në llogarinë tënde ERental.
             </p>
           </div>
 
         </div>";
+    }
 
-    private string CarImage(string? url) => string.IsNullOrEmpty(url) ? "" : $@"
-        <img src='{url}' alt='Makina' style='width:100%; max-height:220px; object-fit:cover; border-radius:12px; display:block; margin-bottom:24px;' />";
+    // ---- shared building blocks -------------------------------------------
+
+    private string SectionLabel(string text) => $@"
+        <p style='color:#717171; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin:0 0 4px 0;'>{text}</p>";
 
     private string DetailsTable(params (string Label, string Value)[] rows)
     {
@@ -71,6 +101,69 @@ public class EmailService : IEmailService
         </div>
         <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash.</p>";
 
+    // Airbnb-style reservation card: photo, pickup/return dates, location, confirmation code, price, host contact.
+    private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null)
+    {
+        var image = string.IsNullOrEmpty(carPhotoUrl) ? "" : $@"
+            <img src='{carPhotoUrl}' alt='{makina}' style='width:100%; height:200px; object-fit:cover; display:block;' />";
+
+        var addressRow = string.IsNullOrEmpty(address) ? "" : $@"
+            <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
+              {SectionLabel("Vendndodhja")}
+              <p style='font-size:14px; color:#111111; margin:0 0 6px 0;'>{address}{(string.IsNullOrEmpty(city) ? "" : $", {city}")}</p>
+              <a href='{MapsLink(address, city ?? "")}' style='font-size:13px; font-weight:600; color:#111111; text-decoration:underline;'>Merr udhëzime →</a>
+            </div>";
+
+        var priceRow = total.HasValue ? $@"
+            <tr>
+              <td style='padding:14px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Çmimi total</td>
+              <td style='padding:14px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>{total.Value}€</td>
+            </tr>" : "";
+
+        var contactRow = string.IsNullOrEmpty(phone) ? "" : $@"
+            <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
+              {PersonRow(bizniEmri, "Biznesi që ofron këtë makinë")}
+              <a href='tel:{phone}' style='display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:#ffffff; background:#111111; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
+            </div>";
+
+        return $@"
+        <div style='border:1px solid #ebebeb; border-radius:16px; overflow:hidden; margin:8px 0 28px 0;'>
+            {image}
+            <div style='padding:24px;'>
+                {SectionLabel("Makinë me qera")}
+                <h2 style='font-size:19px; font-weight:800; color:#111111; margin:0 0 2px 0;'>{makina}</h2>
+                <p style='font-size:13px; color:#717171; margin:0 0 20px 0;'>Nga {bizniEmri}</p>
+
+                <table role='presentation' width='100%' cellpadding='0' cellspacing='0'>
+                  <tr>
+                    <td width='50%' style='padding-right:14px; border-right:1px solid #ebebeb; vertical-align:top;'>
+                      {SectionLabel("Marrja")}
+                      <p style='font-size:15px; font-weight:700; color:#111111; margin:0;'>{FormatDate(dataFillimit)}</p>
+                    </td>
+                    <td width='50%' style='padding-left:14px; vertical-align:top;'>
+                      {SectionLabel("Dorëzimi")}
+                      <p style='font-size:15px; font-weight:700; color:#111111; margin:0;'>{FormatDate(dataPerfundimit)}</p>
+                    </td>
+                  </tr>
+                </table>
+
+                {addressRow}
+
+                <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; margin-top:8px;'>
+                  <tr>
+                    <td style='padding:14px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Numri i konfirmimit</td>
+                    <td style='padding:14px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right; letter-spacing:0.5px;'>{Confirmim(bookingId)}</td>
+                  </tr>
+                  {priceRow}
+                </table>
+
+                {contactRow}
+            </div>
+        </div>";
+    }
+
+    // ---- emails -------------------------------------------------------
+
     public async Task SendVerificationCodeAsync(string toEmail, string emri, string code)
     {
         var body = $@"
@@ -82,29 +175,26 @@ public class EmailService : IEmailService
 
             {CodeBox(code)}";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi yt i verifikimit — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi yt i verifikimit — ERental", "", Wrap(body, "Përdor këtë kod për të verifikuar email-in tënd"));
         await Client.SendEmailAsync(msg);
     }
 
 
-    public async Task SendBookingPendingToClientAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, decimal total, string? carPhotoUrl = null)
+    public async Task SendBookingPendingToClientAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? carPhotoUrl = null)
     {
         var body = $@"
-            {CarImage(carPhotoUrl)}
-
-            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Rezervimi u dërgua</h1>
-
-            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
-                Përshëndetje <strong>{emri}</strong>, rezervimi për <strong>{makina}</strong> u dërgua me sukses.
+            <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Kërkesa u dërgua</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                Përshëndetje <strong>{emri}</strong>, rezervimi yt është dërguar dhe pret miratimin e biznesit.
             </p>
 
-            {DetailsTable(("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit), ("Totali", $"{total}€"))}
+            {TripCard(makina, "", dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl)}
 
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
-                Biznesi do ta shqyrtojë kërkesën dhe do të njoftohesh për përgjigjen.
+                Do të njoftohesh me email dhe në platformë sapo biznesi ta shqyrtojë kërkesën.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi yt është në pritje — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi yt është në pritje — ERental", "", Wrap(body, $"Kërkesa jote për {makina} pret miratim"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -112,66 +202,59 @@ public class EmailService : IEmailService
     public async Task SendBookingRequestToBusinessAsync(string toEmail, string bizniEmri, string makina, string klientiEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null)
     {
         var body = $@"
-            {CarImage(carPhotoUrl)}
-
             <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 20px 0;'>Kërkesë e re rezervimi</h1>
 
             {PersonRow(klientiEmri, $"kërkoi të rezervojë {makina}")}
 
-            {DetailsTable(("Makina", makina), ("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit))}
+            {DetailsTable(("Makina", makina), ("Marrja", FormatDate(dataFillimit)), ("Dorëzimi", FormatDate(dataPerfundimit)))}
 
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
                 Përshëndetje {bizniEmri}, hyr në panelin e biznesit për ta miratuar ose refuzuar kërkesën.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kërkesë e re rezervimi — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kërkesë e re rezervimi — ERental", "", Wrap(body, $"{klientiEmri} kërkoi të rezervojë {makina}"));
         await Client.SendEmailAsync(msg);
     }
 
 
-    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null)
+    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress = null, string? companyCity = null, string? companyPhone = null, string? carPhotoUrl = null)
     {
         var body = $@"
-            {CarImage(carPhotoUrl)}
-
-            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Rezervimi u konfirmua</h1>
-
-            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
-                Përshëndetje <strong>{emri}</strong>, <strong>{bizniEmri}</strong> konfirmoi rezervimin tënd.
+            <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Rezervimi u konfirmua ✓</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                Përshëndetje <strong>{emri}</strong>, <strong>{bizniEmri}</strong> e konfirmoi rezervimin tënd. Je gati për udhëtimin.
             </p>
 
-            {DetailsTable(("Makina", makina), ("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit))}
+            {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone)}
 
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
-                Mund të shkosh në datën e caktuar për të marrë makinën.
+                Shko në adresën e biznesit në datën e caktuar për të marrë makinën. Nëse ndryshon plan, mund ta anulosh nga ""Rezervimet e mia"" në ERental.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u konfirmua — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u konfirmua — ERental", "", Wrap(body, $"Gati për udhëtimin — {makina} nga {bizniEmri}"));
         await Client.SendEmailAsync(msg);
     }
 
 
-    public async Task SendBookingCancelledAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null, string? arsyeja = null)
+    public async Task SendBookingCancelledAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, int bookingId, string? carPhotoUrl = null, string? arsyeja = null)
     {
         var reasonBlock = string.IsNullOrWhiteSpace(arsyeja) ? "" : $@"
-            <div style='background:#f7f7f7; border-radius:12px; padding:16px; margin:16px 0 0 0;'>
-                <p style='color:#717171; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 6px 0;'>Arsyeja</p>
+            <div style='background:#f7f7f7; border-radius:12px; padding:16px; margin:0 0 24px 0;'>
+                <p style='color:#717171; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 6px 0;'>Arsyeja</p>
                 <p style='color:#222222; font-size:14px; line-height:1.6; margin:0;'>{arsyeja}</p>
             </div>";
 
         var body = $@"
-            {CarImage(carPhotoUrl)}
-
-            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Rezervimi u anulua</h1>
-
-            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+            <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Rezervimi u anulua</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
                 Përshëndetje <strong>{emri}</strong>, rezervimi yt për <strong>{makina}</strong> është anuluar.
             </p>
 
-            {DetailsTable(("Makina", makina), ("Marrja", dataFillimit), ("Dorëzimi", dataPerfundimit))}
-            {reasonBlock}";
+            {reasonBlock}
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u anulua — ERental", "", Wrap(body));
+            {TripCard(makina, "", dataFillimit, dataPerfundimit, bookingId, null, carPhotoUrl)}";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u anulua — ERental", "", Wrap(body, $"Rezervimi për {makina} u anulua"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -189,7 +272,7 @@ public class EmailService : IEmailService
                 Na ndihmo dhe klientë të tjerë duke lënë një vlerësim — hyr te ""Rezervimet"" në ERental.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Le nje vleresim per qerane tende — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Le nje vleresim per qerane tende — ERental", "", Wrap(body, $"Si shkoi qeraja e {makina}?"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -209,7 +292,7 @@ public class EmailService : IEmailService
                 Nëse s'e ke kërkuar ti, shpërnfille këtë email.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi per fjalekalimin — ERental", "", Wrap(body));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi per fjalekalimin — ERental", "", Wrap(body, "Kodi yt për ndryshimin e fjalëkalimit"));
         await Client.SendEmailAsync(msg);
     }
 
