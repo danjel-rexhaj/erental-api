@@ -147,10 +147,12 @@ public class CarsController : ControllerBase
     [HttpGet("available")]
     public async Task<IActionResult> GetAvailableCars(DateOnly dataFillimit, DateOnly dataPerfundimit)
     {
+        // Boundaries touching (e.g. one rental ends the 23rd, the next starts the 23rd) are not a conflict —
+        // same-day turnover is allowed. Only a genuine overlap blocks availability.
         var carsIds = await _context.Cars
             .Where(c => c.Statusi == "active")
             .Where(c => !c.CarAvailabilityBlocks.Any(b =>
-                b.DataFillimit <= dataPerfundimit && b.DataPerfundimit >= dataFillimit))
+                b.DataFillimit < dataPerfundimit && b.DataPerfundimit > dataFillimit))
             .Select(c => c.CarId)
             .ToListAsync();
 
@@ -161,5 +163,18 @@ public class CarsController : ControllerBase
             .ToListAsync();
 
         return Ok(cars);
+    }
+
+    [HttpGet("{id}/availability")]
+    public async Task<IActionResult> GetCarAvailability(int id)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var blocks = await _context.CarAvailabilityBlocks
+            .Where(b => b.CarId == id && b.DataPerfundimit >= today)
+            .OrderBy(b => b.DataFillimit)
+            .Select(b => new { b.DataFillimit, b.DataPerfundimit })
+            .ToListAsync();
+
+        return Ok(blocks);
     }
 }

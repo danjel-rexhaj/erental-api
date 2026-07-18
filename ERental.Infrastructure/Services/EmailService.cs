@@ -43,8 +43,19 @@ public class EmailService : IEmailService
         {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='padding:28px 40px; border-bottom:1px solid #ebebeb;'>
-            <span style='font-size:19px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
+          <div style='height:5px; background:linear-gradient(90deg,#2dd4bf,#0f766e);'></div>
+
+          <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
+            <table role='presentation' cellpadding='0' cellspacing='0'>
+              <tr>
+                <td style='width:32px; vertical-align:middle;'>
+                  <div style='width:30px; height:30px; border-radius:50%; background:#0f766e; color:#ffffff; text-align:center; line-height:30px; font-weight:800; font-size:13px;'>ER</div>
+                </td>
+                <td style='padding-left:10px; vertical-align:middle;'>
+                  <span style='font-size:18px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
+                </td>
+              </tr>
+            </table>
           </div>
 
           <div style='padding:40px;'>
@@ -57,7 +68,7 @@ public class EmailService : IEmailService
                 Platforma që lidh biznese të verifikuara të makinave me qera me klientët në të gjithë Shqipërinë.
             </p>
             <p style='color:#767676; font-size:12px; line-height:1.6; margin:0;'>
-                <a href='mailto:info@erental.store' style='color:#767676; text-decoration:underline;'>info@erental.store</a>
+                <a href='mailto:info@erental.store' style='color:#0f766e; text-decoration:underline;'>info@erental.store</a>
                 &nbsp;·&nbsp; Ky email u dërgua sepse ke një veprim aktiv në llogarinë tënde ERental.
             </p>
           </div>
@@ -96,8 +107,8 @@ public class EmailService : IEmailService
         </table>";
 
     private string CodeBox(string code) => $@"
-        <div style='background:#f7f7f7; border-radius:12px; padding:28px; text-align:center; margin:28px 0;'>
-            <span style='font-size:32px; font-weight:700; letter-spacing:8px; color:#111111;'>{code}</span>
+        <div style='background:#f0fdfa; border:1px solid #99f6e4; border-radius:12px; padding:28px; text-align:center; margin:28px 0;'>
+            <span style='font-size:32px; font-weight:700; letter-spacing:8px; color:#0f766e;'>{code}</span>
         </div>
         <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash.</p>";
 
@@ -111,7 +122,7 @@ public class EmailService : IEmailService
             <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
               {SectionLabel("Vendndodhja")}
               <p style='font-size:14px; color:#111111; margin:0 0 6px 0;'>{address}{(string.IsNullOrEmpty(city) ? "" : $", {city}")}</p>
-              <a href='{MapsLink(address, city ?? "")}' style='font-size:13px; font-weight:600; color:#111111; text-decoration:underline;'>Merr udhëzime →</a>
+              <a href='{MapsLink(address, city ?? "")}' style='font-size:13px; font-weight:600; color:#0f766e; text-decoration:underline;'>Merr udhëzime →</a>
             </div>";
 
         var priceRow = total.HasValue ? $@"
@@ -123,7 +134,7 @@ public class EmailService : IEmailService
         var contactRow = string.IsNullOrEmpty(phone) ? "" : $@"
             <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
               {PersonRow(bizniEmri, "Biznesi që ofron këtë makinë")}
-              <a href='tel:{phone}' style='display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:#ffffff; background:#111111; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
+              <a href='tel:{phone}' style='display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:#ffffff; background:#0f766e; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
             </div>";
 
         return $@"

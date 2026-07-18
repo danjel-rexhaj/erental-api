@@ -31,6 +31,9 @@ public class BookingsController : ControllerBase
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    private static readonly string[] MuajtSq = { "Janar", "Shkurt", "Mars", "Prill", "Maj", "Qershor", "Korrik", "Gusht", "Shtator", "Tetor", "Nentor", "Dhjetor" };
+    private static string FormatDateSq(DateOnly d) => $"{d.Day} {MuajtSq[d.Month - 1]} {d.Year}";
+
     private async Task NotifyAsync(int userId, string title, string message, int? bookingId = null, string? target = null)
     {
         var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, BookingId = bookingId, Target = target };
@@ -60,13 +63,19 @@ public class BookingsController : ControllerBase
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Data e perfundimit duhet te jete pas dates se fillimit.");
 
-        bool eshteZene = await _context.CarAvailabilityBlocks
-            .AnyAsync(b => b.CarId == dto.CarId
-                && b.DataFillimit <= dto.DataPerfundimit
-                && b.DataPerfundimit >= dto.DataFillimit);
+        // Boundaries touching (previous rental ends the day this one would start) are not a conflict.
+        var konfliktet = await _context.CarAvailabilityBlocks
+            .Where(b => b.CarId == dto.CarId
+                && b.DataFillimit < dto.DataPerfundimit
+                && b.DataPerfundimit > dto.DataFillimit)
+            .Select(b => b.DataPerfundimit)
+            .ToListAsync();
 
-        if (eshteZene)
-            return BadRequest("Makina nuk eshte e lire per keto data.");
+        if (konfliktet.Count > 0)
+        {
+            var lirohetMe = konfliktet.Max().AddDays(1);
+            return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
+        }
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         decimal cmimiTotal = diteRezervimi * car.CmimiDites;
