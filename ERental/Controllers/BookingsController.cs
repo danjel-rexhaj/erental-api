@@ -378,10 +378,32 @@ public class BookingsController : ControllerBase
     {
         var userId = GetUserId();
         var bookings = await _context.Bookings
-            .Include(b => b.Car)
+            .Include(b => b.Car).ThenInclude(c => c.Company)
             .Include(b => b.Reviews)
             .Where(b => b.UserId == userId)
             .ToListAsync();
         return Ok(bookings);
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteBooking(int id)
+    {
+        var userId = GetUserId();
+
+        var booking = await _context.Bookings
+            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .FirstOrDefaultAsync(b => b.BookingId == id);
+        if (booking == null) return NotFound();
+
+        if (booking.Car.Company.OwnerUserId != userId) return Forbid();
+        if (booking.Statusi != "cancelled") return BadRequest("Vetem rezervimet e anuluara/refuzuara mund te fshihen.");
+
+        _context.Payments.RemoveRange(_context.Payments.Where(p => p.BookingId == id));
+        _context.Reviews.RemoveRange(_context.Reviews.Where(r => r.BookingId == id));
+        _context.Bookings.Remove(booking);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Rezervimi u fshi." });
     }
 }
