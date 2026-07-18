@@ -17,7 +17,7 @@ public class AnalyticsController : ControllerBase
 
     [HttpGet("business")]
     [Authorize]
-    public async Task<IActionResult> GetBusinessAnalytics(int months = 6, int? companyId = null)
+    public async Task<IActionResult> GetBusinessAnalytics(int months = 6, int? days = null, int? companyId = null)
     {
         var userId = GetUserId();
 
@@ -38,7 +38,10 @@ public class AnalyticsController : ControllerBase
             .OrderByDescending(x => x.Shikime)
             .ToListAsync();
 
-        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
+        bool daily = days.HasValue;
+        var since = daily
+            ? DateTime.SpecifyKind(DateTime.UtcNow.AddDays(-Math.Clamp(days!.Value, 1, 90)), DateTimeKind.Unspecified)
+            : DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
 
         var paymentsData = await _context.Payments
             .Where(p => p.Statusi == "completed")
@@ -46,11 +49,15 @@ public class AnalyticsController : ControllerBase
             .Where(x => carIds.Contains(x.CarId) && x.DataPageses >= since)
             .ToListAsync();
 
-        var monthly = paymentsData
-            .GroupBy(x => new { x.DataPageses!.Value.Year, x.DataPageses!.Value.Month })
-            .Select(g => new { g.Key.Year, g.Key.Month, Rezervime = g.Count(), TeArdhura = g.Sum(x => x.ShumaBiznesit) })
-            .OrderBy(x => x.Year).ThenBy(x => x.Month)
-            .ToList();
+        var monthly = daily
+            ? paymentsData.GroupBy(x => x.DataPageses!.Value.Date)
+                .Select(g => new { g.Key.Year, g.Key.Month, Day = (int?)g.Key.Day, Rezervime = g.Count(), TeArdhura = g.Sum(x => x.ShumaBiznesit) })
+                .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day)
+                .ToList()
+            : paymentsData.GroupBy(x => new { x.DataPageses!.Value.Year, x.DataPageses!.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Day = (int?)null, Rezervime = g.Count(), TeArdhura = g.Sum(x => x.ShumaBiznesit) })
+                .OrderBy(x => x.Year).ThenBy(x => x.Month)
+                .ToList();
 
         var totalRevenue = paymentsData.Sum(x => x.ShumaBiznesit);
         var totalBookings = await _context.Bookings.CountAsync(b => carIds.Contains(b.CarId));
@@ -68,32 +75,38 @@ public class AnalyticsController : ControllerBase
 
     [HttpGet("admin")]
     [Authorize]
-    public async Task<IActionResult> GetAdminAnalytics(int months = 6)
+    public async Task<IActionResult> GetAdminAnalytics(int months = 6, int? days = null)
     {
         var userId = GetUserId();
         if (userId != 1) return Forbid();
 
-        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
+        bool daily = days.HasValue;
+        var since = daily
+            ? DateTime.SpecifyKind(DateTime.UtcNow.AddDays(-Math.Clamp(days!.Value, 1, 90)), DateTimeKind.Unspecified)
+            : DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
 
         var userDates = await _context.Users.Where(u => u.DataRegjistrimit >= since).Select(u => u.DataRegjistrimit!.Value).ToListAsync();
         var companyDates = await _context.Companies.Where(c => c.DataRegjistrimit >= since).Select(c => c.DataRegjistrimit!.Value).ToListAsync();
 
-        var monthlyUsers = userDates.GroupBy(d => new { d.Year, d.Month })
-            .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() }).ToList();
-        var monthlyCompanies = companyDates.GroupBy(d => new { d.Year, d.Month })
-            .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() }).ToList();
+        (int Year, int Month, int? Day) Key(DateTime d) => daily ? (d.Year, d.Month, d.Day) : (d.Year, d.Month, (int?)null);
 
-        var monthKeys = monthlyUsers.Select(x => (x.Year, x.Month))
-            .Union(monthlyCompanies.Select(x => (x.Year, x.Month)))
-            .OrderBy(x => x.Year).ThenBy(x => x.Month)
+        var monthlyUsers = userDates.GroupBy(Key)
+            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() }).ToList();
+        var monthlyCompanies = companyDates.GroupBy(Key)
+            .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() }).ToList();
+
+        var monthKeys = monthlyUsers.Select(x => (x.Year, x.Month, x.Day))
+            .Union(monthlyCompanies.Select(x => (x.Year, x.Month, x.Day)))
+            .OrderBy(x => x.Year).ThenBy(x => x.Month).ThenBy(x => x.Day)
             .ToList();
 
         var monthly = monthKeys.Select(m => new
         {
             m.Year,
             m.Month,
-            Users = monthlyUsers.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month)?.Count ?? 0,
-            Companies = monthlyCompanies.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month)?.Count ?? 0
+            m.Day,
+            Users = monthlyUsers.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month && x.Day == m.Day)?.Count ?? 0,
+            Companies = monthlyCompanies.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month && x.Day == m.Day)?.Count ?? 0
         }).ToList();
 
         var totals = new

@@ -46,7 +46,15 @@ public class CarsController : ControllerBase
             .FirstOrDefaultAsync(c => c.CarId == id);
 
         if (car == null) return NotFound();
+        return Ok(car);
+    }
 
+    // Called explicitly by the frontend when a car's detail page actually opens
+    // (the detail page reuses the car object already fetched via the search-results
+    // list, so GetCarById above is never hit in the real browsing flow).
+    [HttpPost("{id}/view")]
+    public async Task<IActionResult> LogView(int id)
+    {
         try
         {
             int? userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : null;
@@ -60,7 +68,7 @@ public class CarsController : ControllerBase
         }
         catch { }
 
-        return Ok(car);
+        return Ok();
     }
 
     [HttpPost]
