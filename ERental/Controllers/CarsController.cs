@@ -46,6 +46,20 @@ public class CarsController : ControllerBase
             .FirstOrDefaultAsync(c => c.CarId == id);
 
         if (car == null) return NotFound();
+
+        try
+        {
+            int? userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : null;
+            _context.CarViews.Add(new CarView
+            {
+                CarId = id,
+                UserId = userId,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+            });
+            await _context.SaveChangesAsync();
+        }
+        catch { }
+
         return Ok(car);
     }
 

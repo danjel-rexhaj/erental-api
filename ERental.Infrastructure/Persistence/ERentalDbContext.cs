@@ -42,6 +42,8 @@ public partial class ERentalDbContext : DbContext
     public virtual DbSet<PendingRegistration> PendingRegistrations { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<WhatsappVerification> WhatsappVerifications { get; set; }
+    public virtual DbSet<CarView> CarViews { get; set; }
+    public virtual DbSet<LoginLog> LoginLogs { get; set; }
 
     // At runtime the app always configures this via appsettings.json / env vars in Program.cs (AddDbContext).
     // This fallback only kicks in for design-time tooling (e.g. `dotnet ef`) run directly against this class,
@@ -550,6 +552,39 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.User).WithMany(p => p.WhatsappVerifications)
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("whatsapp_verifications_user_id_fkey");
+        });
+
+        modelBuilder.Entity<CarView>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("car_views_pkey");
+            entity.ToTable("car_views");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CarId).HasColumnName("car_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.IpAddress).HasMaxLength(45).HasColumnName("ip_address");
+            entity.Property(e => e.DataShikimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_shikimit");
+
+            entity.HasOne(d => d.Car).WithMany(p => p.CarViews)
+                .HasForeignKey(d => d.CarId)
+                .HasConstraintName("car_views_car_id_fkey");
+        });
+
+        modelBuilder.Entity<LoginLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("login_logs_pkey");
+            entity.ToTable("login_logs");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Email).HasMaxLength(100).HasColumnName("email");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.IpAddress).HasMaxLength(45).HasColumnName("ip_address");
+            entity.Property(e => e.Sukses).HasColumnName("sukses");
+            entity.Property(e => e.DataHyrjes)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_hyrjes");
         });
 
         OnModelCreatingPartial(modelBuilder);

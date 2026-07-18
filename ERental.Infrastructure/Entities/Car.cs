@@ -47,5 +47,7 @@ public partial class Car
 
     public virtual ICollection<CarPhoto> CarPhotos { get; set; } = new List<CarPhoto>();
 
+    public virtual ICollection<CarView> CarViews { get; set; } = new List<CarView>();
+
     public virtual Company Company { get; set; } = null!;
 }

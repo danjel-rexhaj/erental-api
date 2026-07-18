@@ -88,9 +88,27 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginDto dto)
     {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        {
+            try
+            {
+                _context.LoginLogs.Add(new LoginLog { Email = dto.Email, UserId = user?.UserId, IpAddress = ip, Sukses = false });
+                await _context.SaveChangesAsync();
+            }
+            catch { }
+
             return Unauthorized("Email ose fjalekalim gabim.");
+        }
+
+        try
+        {
+            _context.LoginLogs.Add(new LoginLog { Email = dto.Email, UserId = user.UserId, IpAddress = ip, Sukses = true });
+            await _context.SaveChangesAsync();
+        }
+        catch { }
 
         bool hasCompany = await _context.Companies.AnyAsync(c => c.OwnerUserId == user.UserId);
 
