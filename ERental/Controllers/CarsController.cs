@@ -147,6 +147,9 @@ public class CarsController : ControllerBase
     [HttpGet("available")]
     public async Task<IActionResult> GetAvailableCars(DateOnly dataFillimit, DateOnly dataPerfundimit)
     {
+        if (dataPerfundimit <= dataFillimit)
+            return BadRequest("Data e dorezimit duhet te jete pas dates se marrjes.");
+
         // Boundaries touching (e.g. one rental ends the 23rd, the next starts the 23rd) are not a conflict —
         // same-day turnover is allowed. Only a genuine overlap blocks availability.
         var carsIds = await _context.Cars
