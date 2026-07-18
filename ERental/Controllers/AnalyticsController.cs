@@ -17,10 +17,16 @@ public class AnalyticsController : ControllerBase
 
     [HttpGet("business")]
     [Authorize]
-    public async Task<IActionResult> GetBusinessAnalytics()
+    public async Task<IActionResult> GetBusinessAnalytics(int months = 6, int? companyId = null)
     {
         var userId = GetUserId();
-        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+
+        Infrastructure.Entities.Company? company;
+        if (companyId.HasValue && userId == 1)
+            company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId.Value);
+        else
+            company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+
         if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
 
         var carIds = await _context.Cars.Where(c => c.CompanyId == company.CompanyId).Select(c => c.CarId).ToListAsync();
@@ -32,7 +38,7 @@ public class AnalyticsController : ControllerBase
             .OrderByDescending(x => x.Shikime)
             .ToListAsync();
 
-        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-6), DateTimeKind.Unspecified);
+        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
 
         var paymentsData = await _context.Payments
             .Where(p => p.Statusi == "completed")
@@ -52,6 +58,8 @@ public class AnalyticsController : ControllerBase
 
         return Ok(new
         {
+            companyId = company.CompanyId,
+            companyName = company.Emri,
             viewsPerCar,
             monthly,
             totals = new { totalRevenue, totalBookings, totalViews }
@@ -60,12 +68,12 @@ public class AnalyticsController : ControllerBase
 
     [HttpGet("admin")]
     [Authorize]
-    public async Task<IActionResult> GetAdminAnalytics()
+    public async Task<IActionResult> GetAdminAnalytics(int months = 6)
     {
         var userId = GetUserId();
         if (userId != 1) return Forbid();
 
-        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-6), DateTimeKind.Unspecified);
+        var since = DateTime.SpecifyKind(DateTime.UtcNow.AddMonths(-Math.Clamp(months, 1, 24)), DateTimeKind.Unspecified);
 
         var userDates = await _context.Users.Where(u => u.DataRegjistrimit >= since).Select(u => u.DataRegjistrimit!.Value).ToListAsync();
         var companyDates = await _context.Companies.Where(c => c.DataRegjistrimit >= since).Select(c => c.DataRegjistrimit!.Value).ToListAsync();
@@ -75,12 +83,12 @@ public class AnalyticsController : ControllerBase
         var monthlyCompanies = companyDates.GroupBy(d => new { d.Year, d.Month })
             .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() }).ToList();
 
-        var months = monthlyUsers.Select(x => (x.Year, x.Month))
+        var monthKeys = monthlyUsers.Select(x => (x.Year, x.Month))
             .Union(monthlyCompanies.Select(x => (x.Year, x.Month)))
             .OrderBy(x => x.Year).ThenBy(x => x.Month)
             .ToList();
 
-        var monthly = months.Select(m => new
+        var monthly = monthKeys.Select(m => new
         {
             m.Year,
             m.Month,
