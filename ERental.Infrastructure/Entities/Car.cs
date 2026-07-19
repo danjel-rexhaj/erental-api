@@ -45,6 +45,11 @@ public partial class Car
 
     public string[]? Amenities { get; set; }
 
+    // Transient — populated only by CarsController.GetAvailableCars for near-miss availability display, not persisted.
+    public bool? EshteELire { get; set; }
+
+    public DateOnly? LirohetMe { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<CarAvailabilityBlock> CarAvailabilityBlocks { get; set; } = new List<CarAvailabilityBlock>();

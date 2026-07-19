@@ -152,20 +152,39 @@ public class CarsController : ControllerBase
 
         // Boundaries touching (e.g. one rental ends the 23rd, the next starts the 23rd) are not a conflict —
         // same-day turnover is allowed. Only a genuine overlap blocks availability.
-        var carsIds = await _context.Cars
+        var activeCars = await _context.Cars
             .Where(c => c.Statusi == "active")
-            .Where(c => !c.CarAvailabilityBlocks.Any(b =>
-                b.DataFillimit < dataPerfundimit && b.DataPerfundimit > dataFillimit))
-            .Select(c => c.CarId)
-            .ToListAsync();
-
-        var cars = await _context.Cars
-            .Where(c => carsIds.Contains(c.CarId))
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
+            .Include(c => c.CarAvailabilityBlocks)
             .ToListAsync();
 
-        return Ok(cars);
+        var nearMissThreshold = dataFillimit.AddDays(3);
+        var result = new List<Car>();
+        foreach (var c in activeCars)
+        {
+            var konfliktet = c.CarAvailabilityBlocks
+                .Where(b => b.DataFillimit < dataPerfundimit && b.DataPerfundimit > dataFillimit)
+                .ToList();
+
+            if (konfliktet.Count == 0)
+            {
+                c.EshteELire = true;
+                result.Add(c);
+            }
+            else
+            {
+                var lirohetMe = konfliktet.Max(b => b.DataPerfundimit);
+                if (lirohetMe <= nearMissThreshold)
+                {
+                    c.EshteELire = false;
+                    c.LirohetMe = lirohetMe;
+                    result.Add(c);
+                }
+            }
+        }
+
+        return Ok(result.OrderByDescending(c => c.EshteELire));
     }
 
     [HttpGet("{id}/availability")]

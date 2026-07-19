@@ -156,6 +156,8 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Amenities)
                 .HasColumnType("text[]")
                 .HasColumnName("amenities");
+            entity.Ignore(e => e.EshteELire);
+            entity.Ignore(e => e.LirohetMe);
 
             entity.HasOne(d => d.Company).WithMany(p => p.Cars)
                 .HasForeignKey(d => d.CompanyId)
