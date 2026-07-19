@@ -68,6 +68,9 @@ public class PayPalService : IPayPalService
                     cancel_url = cancelUrl,
                     user_action = "PAY_NOW",
                     shipping_preference = "NO_SHIPPING",
+                    // Without this, PayPal's hosted page leads with account login. BILLING sends the
+                    // payer straight to the guest card-entry form instead.
+                    landing_page = "BILLING",
                 }
             }
             : new
