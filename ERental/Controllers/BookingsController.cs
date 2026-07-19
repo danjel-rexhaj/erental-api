@@ -57,7 +57,7 @@ public class BookingsController : ControllerBase
     // then swept on the next list load — no background job needed for this volume.
     private async Task PurgeExpiredCancelledAsync()
     {
-        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var cutoff = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(-24), DateTimeKind.Unspecified);
         var expired = await _context.Bookings
             .Where(b => b.Statusi == "cancelled" && b.DataAnulimit != null && b.DataAnulimit < cutoff)
             .ToListAsync();
