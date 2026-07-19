@@ -274,8 +274,8 @@ public class EmailService : IEmailService
     {
         var titulli = perBiznesin ? "Ke marre nje pagese te re" : "Pagesa u krye me sukses";
         var pershkrimi = perBiznesin
-            ? $"Klienti <strong>{counterpartyName}</strong> pagoi {(eshtePagesePlote ? "shumen e plote" : "depoziten (1 dite)")} per <strong>{makina}</strong> permes PayPal."
-            : $"Pagesa jote per <strong>{makina}</strong> prane <strong>{counterpartyName}</strong> u krye me sukses permes PayPal.";
+            ? $"Klienti <strong>{counterpartyName}</strong> pagoi {(eshtePagesePlote ? "shumen e plote" : "depoziten (1 dite)")} per <strong>{makina}</strong> me karte."
+            : $"Pagesa jote per <strong>{makina}</strong> prane <strong>{counterpartyName}</strong> u krye me sukses me karte.";
 
         var body = $@"
             <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>{titulli} ✓</h1>
@@ -292,7 +292,7 @@ public class EmailService : IEmailService
                   </tr>
                   <tr>
                     <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Menyra</td>
-                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>PayPal — {(eshtePagesePlote ? "Pagese e plote" : "Depozite (1 dite)")}</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>Karte — {(eshtePagesePlote ? "Pagese e plote" : "Depozite (1 dite)")}</td>
                   </tr>
                   <tr>
                     <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Shuma e paguar</td>
