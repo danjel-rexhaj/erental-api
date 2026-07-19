@@ -283,6 +283,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Telefoni)
                 .HasMaxLength(20)
                 .HasColumnName("telefoni");
+            entity.Ignore(e => e.AvgRating);
+            entity.Ignore(e => e.ReviewCount);
+            entity.Ignore(e => e.CarCount);
 
             entity.HasOne(d => d.OwnerUser).WithMany(p => p.Companies)
                 .HasForeignKey(d => d.OwnerUserId)

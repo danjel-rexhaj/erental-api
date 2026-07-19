@@ -41,6 +41,12 @@ public partial class Company
 
     public bool? AllowCashPayment { get; set; }
 
+    public double? AvgRating { get; set; }
+
+    public int ReviewCount { get; set; }
+
+    public int CarCount { get; set; }
+
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 
     public virtual ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();

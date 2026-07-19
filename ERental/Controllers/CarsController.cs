@@ -27,6 +27,37 @@ public class CarsController : ControllerBase
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    // Attaches average rating / review count / active car count onto each car's Company navigation,
+    // computed via grouped queries instead of Includes so we never ship every review/car back down.
+    private async Task AttachCompanyStatsAsync(IEnumerable<Car> cars)
+    {
+        var companyIds = cars.Select(c => c.CompanyId).Distinct().ToList();
+        if (companyIds.Count == 0) return;
+
+        var ratingStats = await _context.Reviews
+            .Where(r => companyIds.Contains(r.CompanyId) && r.Rating != null)
+            .GroupBy(r => r.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Avg = g.Average(r => r.Rating!.Value), Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId);
+
+        var carCounts = await _context.Cars
+            .Where(c => companyIds.Contains(c.CompanyId) && c.Statusi == "active")
+            .GroupBy(c => c.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count);
+
+        foreach (var car in cars)
+        {
+            if (car.Company == null) continue;
+            if (ratingStats.TryGetValue(car.CompanyId, out var rs))
+            {
+                car.Company.AvgRating = Math.Round(rs.Avg, 1);
+                car.Company.ReviewCount = rs.Count;
+            }
+            car.Company.CarCount = carCounts.TryGetValue(car.CompanyId, out var cc) ? cc : 0;
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetCars()
     {
@@ -34,6 +65,7 @@ public class CarsController : ControllerBase
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
             .ToListAsync();
+        await AttachCompanyStatsAsync(cars);
         return Ok(cars);
     }
 
@@ -46,6 +78,7 @@ public class CarsController : ControllerBase
             .FirstOrDefaultAsync(c => c.CarId == id);
 
         if (car == null) return NotFound();
+        await AttachCompanyStatsAsync(new[] { car });
         return Ok(car);
     }
 
@@ -184,6 +217,7 @@ public class CarsController : ControllerBase
             }
         }
 
+        await AttachCompanyStatsAsync(result);
         return Ok(result.OrderByDescending(c => c.EshteELire));
     }
 
