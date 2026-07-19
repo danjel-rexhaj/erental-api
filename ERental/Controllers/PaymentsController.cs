@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ERental.Controllers;
 
 public record CapturePaymentDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string PaypalOrderId);
-public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method);
+public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string? ReturnUrl = null, string? CancelUrl = null);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -22,7 +22,8 @@ public class PaymentsController : ControllerBase
     }
 
     // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
-    // client) so the frontend's inline Card Fields form has an order id to submit against.
+    // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used — the
+    // frontend sends the browser to the returned approveUrl instead of rendering an inline lightbox.
     [HttpPost("paypal/create-order")]
     [Authorize]
     public async Task<IActionResult> CreateOrder(CreateOrderDto dto)
@@ -40,11 +41,11 @@ public class PaymentsController : ControllerBase
         decimal totali = dite * car.CmimiDites;
         decimal shuma = dto.Method == "deposit" ? car.CmimiDites : totali;
 
-        var result = await _payPal.CreateOrderAsync(shuma);
+        var result = await _payPal.CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
             return BadRequest(result.Error ?? "Krijimi i pageses deshtoi.");
 
-        return Ok(new { orderId = result.OrderId });
+        return Ok(new { orderId = result.OrderId, approveUrl = result.ApproveUrl });
     }
 
     // Captures a PayPal order the client already approved, verifying server-side that the captured
