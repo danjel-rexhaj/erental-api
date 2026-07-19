@@ -78,20 +78,37 @@ public class PayPalService : IPayPalService
         var token = await GetAccessTokenAsync();
         if (token == null) return new PayPalCaptureResult(false, null, null, null, null, "Autentikimi me PayPal deshtoi.");
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"/v2/checkout/orders/{orderId}/capture");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        req.Content = new StringContent("", Encoding.UTF8, "application/json");
-
-        var res = await _http.SendAsync(req);
-        var body = await res.Content.ReadFromJsonAsync<JsonElement>();
-        if (!res.IsSuccessStatusCode)
+        // PayPal's card-guest-checkout approval can land a beat after the browser's onApprove fires
+        // (ORDER_NOT_APPROVED), so retry briefly before treating it as a genuine failure.
+        for (int attempt = 1; attempt <= 3; attempt++)
         {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"/v2/checkout/orders/{orderId}/capture");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Content = new StringContent("", Encoding.UTF8, "application/json");
+
+            var res = await _http.SendAsync(req);
+            var body = await res.Content.ReadFromJsonAsync<JsonElement>();
+            if (res.IsSuccessStatusCode)
+            {
+                var capture = body.GetProperty("purchase_units")[0].GetProperty("payments").GetProperty("captures")[0];
+                return ParseCapture(capture);
+            }
+
+            var issue = body.TryGetProperty("details", out var details) && details.GetArrayLength() > 0
+                ? details[0].GetProperty("issue").GetString()
+                : null;
+
+            if (issue == "ORDER_NOT_APPROVED" && attempt < 3)
+            {
+                await Task.Delay(1200 * attempt);
+                continue;
+            }
+
             var msg = body.TryGetProperty("message", out var m) ? m.GetString() : "Pagesa nuk u pranua nga PayPal.";
             return new PayPalCaptureResult(false, null, null, null, null, msg);
         }
 
-        var capture = body.GetProperty("purchase_units")[0].GetProperty("payments").GetProperty("captures")[0];
-        return ParseCapture(capture);
+        return new PayPalCaptureResult(false, null, null, null, null, "Pagesa nuk u pranua nga PayPal.");
     }
 
     public async Task<PayPalCaptureResult> GetCaptureAsync(string captureId)
