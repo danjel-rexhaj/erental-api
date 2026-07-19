@@ -32,7 +32,7 @@ public class CompaniesController : ControllerBase
     public async Task<IActionResult> RegisterCompany(
     [FromForm] string emri, [FromForm] string telefoni, [FromForm] string adresa,
     [FromForm] string qyteti, [FromForm] string nipt, [FromForm] double? latitude,
-    [FromForm] double? longitude, [FromForm] bool allowCashPayment, IFormFile? certifikataFile)
+    [FromForm] double? longitude, IFormFile? certifikataFile)
     {
         var userId = GetUserId();
 
@@ -52,7 +52,6 @@ public class CompaniesController : ControllerBase
             Nipt = nipt,
             Latitude = latitude,
             Longitude = longitude,
-            AllowCashPayment = allowCashPayment,
             EshteVerifikuar = false,
             BillingModel = "commission",
             Statusi = "active",
@@ -152,20 +151,6 @@ public class CompaniesController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { company.Latitude, company.Longitude });
-    }
-
-    [HttpPut("my-company/cash-payment")]
-    [Authorize]
-    public async Task<IActionResult> UpdateCashPayment([FromBody] bool allow)
-    {
-        var userId = GetUserId();
-        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
-        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
-
-        company.AllowCashPayment = allow;
-        await _context.SaveChangesAsync();
-
-        return Ok(new { company.AllowCashPayment });
     }
 
     [HttpPut("{id}/verify")]

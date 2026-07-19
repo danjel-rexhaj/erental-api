@@ -73,20 +73,16 @@ public class BookingsController : ControllerBase
             .Select(b => b.DataPerfundimit)
             .ToListAsync();
 
-        var paymentMethod = dto.PaymentMethod ?? "cash";
-        if (paymentMethod != "cash" && paymentMethod != "paypal_deposit" && paymentMethod != "paypal_full")
-            return BadRequest("Menyre pagese e panjohur.");
-
-        if (paymentMethod == "cash" && car.Company.AllowCashPayment == false)
-            return BadRequest("Ky biznes nuk pranon pagesa cash. Zgjidh nje menyre tjeter pagese.");
+        var paymentMethod = dto.PaymentMethod;
+        if (paymentMethod != "paypal_deposit" && paymentMethod != "paypal_full")
+            return BadRequest("Duhet zgjedhur nje menyre pagese (depozite ose e plote).");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         decimal cmimiTotal = diteRezervimi * car.CmimiDites;
 
-        // For online methods, the capture already happened via POST /api/Payments/paypal/capture — re-verify
-        // it here against PayPal directly rather than trusting the client's claimed amount/method.
-        decimal? shumaPaguarOnline = null;
-        if (paymentMethod != "cash")
+        // The capture already happened via POST /api/Payments/paypal/capture — re-verify it here
+        // against PayPal directly rather than trusting the client's claimed amount/method.
+        decimal? shumaPaguarOnline;
         {
             if (string.IsNullOrWhiteSpace(dto.PaypalCaptureId))
                 return BadRequest("Mungon konfirmimi i pageses.");
@@ -105,8 +101,7 @@ public class BookingsController : ControllerBase
         if (konfliktet.Count > 0)
         {
             var lirohetMe = konfliktet.Max().AddDays(1);
-            if (paymentMethod != "cash" && dto.PaypalCaptureId != null)
-                await _payPal.RefundCaptureAsync(dto.PaypalCaptureId, shumaPaguarOnline!.Value);
+            await _payPal.RefundCaptureAsync(dto.PaypalCaptureId!, shumaPaguarOnline!.Value);
             return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
         }
 
@@ -124,7 +119,6 @@ public class BookingsController : ControllerBase
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
 
-        if (paymentMethod != "cash")
         {
             var company = car.Company;
             decimal komisioni = company.BillingModel == "commission" ? cmimiTotal * (company.CommissionRate ?? 0) / 100 : 0;
@@ -154,7 +148,7 @@ public class BookingsController : ControllerBase
             if (car.Company.Email != null)
                 await _emailService.SendBookingRequestToBusinessAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
 
-            if (paymentMethod != "cash" && shumaPaguarOnline != null)
+            if (shumaPaguarOnline != null)
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
