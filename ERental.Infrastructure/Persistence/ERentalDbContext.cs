@@ -43,6 +43,7 @@ public partial class ERentalDbContext : DbContext
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<WhatsappVerification> WhatsappVerifications { get; set; }
     public virtual DbSet<CarView> CarViews { get; set; }
+    public virtual DbSet<Favorite> Favorites { get; set; }
     public virtual DbSet<LoginLog> LoginLogs { get; set; }
 
     // At runtime the app always configures this via appsettings.json / env vars in Program.cs (AddDbContext).
@@ -586,6 +587,30 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.User).WithMany(p => p.WhatsappVerifications)
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("whatsapp_verifications_user_id_fkey");
+        });
+
+        modelBuilder.Entity<Favorite>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("favorites_pkey");
+            entity.ToTable("favorites");
+            entity.HasIndex(e => new { e.UserId, e.CarId }, "favorites_user_id_car_id_key").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CarId).HasColumnName("car_id");
+            entity.Property(e => e.DataKrijimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_krijimit");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("favorites_user_id_fkey");
+
+            entity.HasOne(d => d.Car).WithMany()
+                .HasForeignKey(d => d.CarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("favorites_car_id_fkey");
         });
 
         modelBuilder.Entity<CarView>(entity =>
