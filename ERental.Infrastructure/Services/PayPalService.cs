@@ -46,6 +46,33 @@ public class PayPalService : IPayPalService
         return new PayPalCaptureResult(status == "COMPLETED", id, value, currency, status, null);
     }
 
+    public async Task<PayPalOrderResult> CreateOrderAsync(decimal amount, string currency = "EUR")
+    {
+        var token = await GetAccessTokenAsync();
+        if (token == null) return new PayPalOrderResult(false, null, "Autentikimi me PayPal deshtoi.");
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/v2/checkout/orders");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Content = JsonContent.Create(new
+        {
+            intent = "CAPTURE",
+            purchase_units = new[]
+            {
+                new { amount = new { currency_code = currency, value = amount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) } }
+            }
+        });
+
+        var res = await _http.SendAsync(req);
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>();
+        if (!res.IsSuccessStatusCode)
+        {
+            var msg = body.TryGetProperty("message", out var m) ? m.GetString() : "Krijimi i porosise ne PayPal deshtoi.";
+            return new PayPalOrderResult(false, null, msg);
+        }
+
+        return new PayPalOrderResult(true, body.GetProperty("id").GetString(), null);
+    }
+
     public async Task<PayPalCaptureResult> CaptureOrderAsync(string orderId)
     {
         var token = await GetAccessTokenAsync();

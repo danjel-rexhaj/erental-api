@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ERental.Controllers;
 
 public record CapturePaymentDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string PaypalOrderId);
+public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -18,6 +19,32 @@ public class PaymentsController : ControllerBase
     {
         _context = context;
         _payPal = payPal;
+    }
+
+    // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
+    // client) so the frontend's inline Card Fields form has an order id to submit against.
+    [HttpPost("paypal/create-order")]
+    [Authorize]
+    public async Task<IActionResult> CreateOrder(CreateOrderDto dto)
+    {
+        if (dto.Method != "deposit" && dto.Method != "full")
+            return BadRequest("Menyre pagese e panjohur.");
+
+        var car = await _context.Cars.FindAsync(dto.CarId);
+        if (car == null) return NotFound("Makina nuk ekziston.");
+
+        if (dto.DataPerfundimit <= dto.DataFillimit)
+            return BadRequest("Datat nuk jane te vlefshme.");
+
+        int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
+        decimal totali = dite * car.CmimiDites;
+        decimal shuma = dto.Method == "deposit" ? car.CmimiDites : totali;
+
+        var result = await _payPal.CreateOrderAsync(shuma);
+        if (!result.Success)
+            return BadRequest(result.Error ?? "Krijimi i pageses deshtoi.");
+
+        return Ok(new { orderId = result.OrderId });
     }
 
     // Captures a PayPal order the client already approved, verifying server-side that the captured
