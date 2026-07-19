@@ -32,6 +32,15 @@ public class EmailService : IEmailService
     private static string MapsLink(string address, string city) =>
         $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString($"{address}, {city}, Shqipëri")}";
 
+    private static string ToWhatsappNumber(string? phone)
+    {
+        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return "";
+        if (digits.StartsWith("355")) return digits;
+        if (digits.StartsWith("0")) return "355" + digits[1..];
+        return digits;
+    }
+
     // ---- layout shell ----------------------------------------------------
 
     private string Wrap(string bodyHtml, string preheader = "")
@@ -230,6 +239,18 @@ public class EmailService : IEmailService
 
     public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress = null, string? companyCity = null, string? companyPhone = null, string? carPhotoUrl = null)
     {
+        var waNumber = ToWhatsappNumber(companyPhone);
+        var docsBlock = waNumber == "" ? "" : $@"
+            <div style='background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; margin:0 0 24px 0;'>
+                <p style='color:#166534; font-size:13px; font-weight:700; margin:0 0 8px 0;'>Para se te marrësh makinën</p>
+                <p style='color:#166534; font-size:13px; line-height:1.6; margin:0 0 12px 0;'>
+                    Dërgo në WhatsApp të <strong>{bizniEmri}</strong> një foto të <strong>patentës</strong> dhe <strong>kartës së identitetit (ID)</strong> të shoferit, që biznesi të verifikojë identitetin tënd para se të shkosh.
+                </p>
+                <a href='https://wa.me/{waNumber}' style='display:inline-block; background:#25D366; color:#ffffff; font-size:13px; font-weight:700; text-decoration:none; padding:10px 18px; border-radius:999px;'>
+                    Dërgo në WhatsApp
+                </a>
+            </div>";
+
         var body = $@"
             <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Rezervimi u konfirmua ✓</h1>
             <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
@@ -238,8 +259,10 @@ public class EmailService : IEmailService
 
             {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone)}
 
+            {docsBlock}
+
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
-                Shko në adresën e biznesit në datën e caktuar për të marrë makinën. Nëse ndryshon plan, mund ta anulosh nga ""Rezervimet e mia"" në ERental.
+                Shko në adresën e biznesit në datën e caktuar — atje merr kontratën e nënshkruar dhe makinën. Mos u vono. Nëse ndryshon plan, mund ta anulosh nga ""Rezervimet e mia"" në ERental.
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u konfirmua — ERental", "", Wrap(body, $"Gati për udhëtimin — {makina} nga {bizniEmri}"));

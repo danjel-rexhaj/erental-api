@@ -327,6 +327,35 @@ public class BookingsController : ControllerBase
         }
     }
 
+    [HttpPut("{id}/verify-id")]
+    [Authorize]
+    public async Task<IActionResult> VerifyId(int id)
+    {
+        var userId = GetUserId();
+
+        var booking = await _context.Bookings
+            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .FirstOrDefaultAsync(b => b.BookingId == id);
+        if (booking == null) return NotFound();
+
+        if (booking.Car.Company.OwnerUserId != userId) return Forbid();
+        if (booking.Statusi != "pending" && booking.Statusi != "confirmed")
+            return BadRequest("Ky rezervim nuk mund te verifikohet.");
+
+        booking.IdVerifikuar = true;
+        await _context.SaveChangesAsync();
+
+        try
+        {
+            await NotifyAsync(booking.UserId, "Identiteti u verifikua",
+                $"{booking.Car.Company.Emri} konfirmoi identitetin tend — je gati per te marre makinen.",
+                booking.BookingId, "client_booking");
+        }
+        catch { }
+
+        return Ok(new { message = "Identiteti u verifikua.", booking });
+    }
+
     [HttpPut("{id}/cancel")]
     [Authorize]
     public async Task<IActionResult> CancelBooking(int id, CancelBookingDto? dto = null)
@@ -350,8 +379,8 @@ public class BookingsController : ControllerBase
         if (eshteKlienti && !eshteBiznesi)
         {
             var oreQeKaluan = (DateTime.UtcNow - booking.DataKrijimit!.Value).TotalHours;
-            if (oreQeKaluan > 24)
-                return BadRequest("Kane kaluar 24 ore nga rezervimi — anulimi nuk lejohet me.");
+            if (oreQeKaluan > 12)
+                return BadRequest("Kane kaluar 12 ore nga rezervimi — anulimi nuk lejohet me nga platforma. Kontakto biznesin direkt.");
         }
 
         if (eshteBiznesi && string.IsNullOrWhiteSpace(dto?.Reason))
@@ -435,6 +464,7 @@ public class BookingsController : ControllerBase
                 b.DataKrijimit,
                 b.ArsyejaRefuzimit,
                 b.PaymentMethod,
+                b.IdVerifikuar,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
                 Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId }).FirstOrDefault()
