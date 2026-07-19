@@ -27,6 +27,8 @@ public partial class Booking
 
     public bool IdVerifikuar { get; set; }
 
+    public DateTime? DataAnulimit { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();

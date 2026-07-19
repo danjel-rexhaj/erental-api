@@ -53,6 +53,23 @@ public class BookingsController : ControllerBase
         });
     }
 
+    // Cancelled bookings are kept visible for 24h (so both sides can still see why/what happened),
+    // then swept on the next list load — no background job needed for this volume.
+    private async Task PurgeExpiredCancelledAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var expired = await _context.Bookings
+            .Where(b => b.Statusi == "cancelled" && b.DataAnulimit != null && b.DataAnulimit < cutoff)
+            .ToListAsync();
+        if (expired.Count == 0) return;
+
+        var ids = expired.Select(b => b.BookingId).ToList();
+        _context.Payments.RemoveRange(_context.Payments.Where(p => ids.Contains(p.BookingId)));
+        _context.Reviews.RemoveRange(_context.Reviews.Where(r => ids.Contains(r.BookingId)));
+        _context.Bookings.RemoveRange(expired);
+        await _context.SaveChangesAsync();
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> CreateBooking(CreateBookingDto dto)
@@ -387,6 +404,7 @@ public class BookingsController : ControllerBase
             return BadRequest("Duhet te jepesh nje arsye per refuzimin.");
 
         booking.Statusi = "cancelled";
+        booking.DataAnulimit = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
         if (eshteBiznesi) booking.ArsyejaRefuzimit = dto!.Reason;
 
         var block = await _context.CarAvailabilityBlocks
@@ -447,6 +465,7 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> GetCompanyBookings()
     {
         var userId = GetUserId();
+        await PurgeExpiredCancelledAsync();
 
         var bookings = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
@@ -479,6 +498,7 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> GetMyBookings()
     {
         var userId = GetUserId();
+        await PurgeExpiredCancelledAsync();
         var bookings = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
             .Include(b => b.Reviews)
@@ -499,7 +519,7 @@ public class BookingsController : ControllerBase
             .FirstOrDefaultAsync(b => b.BookingId == id);
         if (booking == null) return NotFound();
 
-        if (booking.Car.Company.OwnerUserId != userId) return Forbid();
+        if (booking.Car.Company.OwnerUserId != userId && booking.UserId != userId) return Forbid();
         if (booking.Statusi != "cancelled") return BadRequest("Vetem rezervimet e anuluara/refuzuara mund te fshihen.");
 
         _context.Payments.RemoveRange(_context.Payments.Where(p => p.BookingId == id));
