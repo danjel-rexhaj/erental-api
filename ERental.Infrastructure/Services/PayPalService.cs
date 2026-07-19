@@ -150,11 +150,34 @@ public class PayPalService : IPayPalService
                 continue;
             }
 
-            var msg = body.TryGetProperty("message", out var m) ? m.GetString() : "Pagesa nuk u pranua nga PayPal.";
-            return new PayPalCaptureResult(false, null, null, null, null, msg);
+            // Already captured (e.g. a retried/duplicate request) isn't a real failure — fetch the
+            // order and return its existing capture instead of erroring on an idempotent replay.
+            if (issue == "ORDER_ALREADY_CAPTURED")
+            {
+                var existing = await GetOrderCaptureAsync(orderId, token);
+                if (existing != null) return existing;
+            }
+
+            var description = details.ValueKind == JsonValueKind.Array && details.GetArrayLength() > 0 && details[0].TryGetProperty("description", out var d)
+                ? d.GetString()
+                : null;
+            var msg = description ?? (body.TryGetProperty("message", out var m) ? m.GetString() : "Pagesa nuk u pranua nga PayPal.");
+            return new PayPalCaptureResult(false, null, null, null, null, issue != null ? $"{issue}: {msg}" : msg);
         }
 
         return new PayPalCaptureResult(false, null, null, null, null, "Pagesa nuk u pranua nga PayPal.");
+    }
+
+    private async Task<PayPalCaptureResult?> GetOrderCaptureAsync(string orderId, string token)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"/v2/checkout/orders/{orderId}");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var res = await _http.SendAsync(req);
+        if (!res.IsSuccessStatusCode) return null;
+
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>();
+        var captures = body.GetProperty("purchase_units")[0].GetProperty("payments").GetProperty("captures");
+        return captures.GetArrayLength() > 0 ? ParseCapture(captures[0]) : null;
     }
 
     public async Task<PayPalCaptureResult> GetCaptureAsync(string captureId)
