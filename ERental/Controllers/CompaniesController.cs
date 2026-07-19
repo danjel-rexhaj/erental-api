@@ -9,6 +9,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
+public record UpdateLocationDto(double Latitude, double Longitude);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -30,7 +31,8 @@ public class CompaniesController : ControllerBase
     [Authorize]
     public async Task<IActionResult> RegisterCompany(
     [FromForm] string emri, [FromForm] string telefoni, [FromForm] string adresa,
-    [FromForm] string qyteti, [FromForm] string nipt, IFormFile? certifikataFile)
+    [FromForm] string qyteti, [FromForm] string nipt, [FromForm] double? latitude,
+    [FromForm] double? longitude, IFormFile? certifikataFile)
     {
         var userId = GetUserId();
 
@@ -48,6 +50,8 @@ public class CompaniesController : ControllerBase
             Adresa = adresa,
             Qyteti = qyteti,
             Nipt = nipt,
+            Latitude = latitude,
+            Longitude = longitude,
             EshteVerifikuar = false,
             BillingModel = "commission",
             Statusi = "active",
@@ -132,6 +136,21 @@ public class CompaniesController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { logoUrl = url });
+    }
+
+    [HttpPut("my-company/location")]
+    [Authorize]
+    public async Task<IActionResult> UpdateLocation(UpdateLocationDto dto)
+    {
+        var userId = GetUserId();
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        company.Latitude = dto.Latitude;
+        company.Longitude = dto.Longitude;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { company.Latitude, company.Longitude });
     }
 
     [HttpPut("{id}/verify")]

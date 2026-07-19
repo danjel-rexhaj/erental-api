@@ -260,6 +260,8 @@ public partial class ERentalDbContext : DbContext
                 .HasColumnName("nipt");
             entity.Property(e => e.OwnerUserId).HasColumnName("owner_user_id");
             entity.Property(e => e.LogoUrl).HasColumnName("logo_url");
+            entity.Property(e => e.Latitude).HasColumnName("latitude");
+            entity.Property(e => e.Longitude).HasColumnName("longitude");
             entity.Property(e => e.Qyteti)
                 .HasMaxLength(50)
                 .HasColumnName("qyteti");
