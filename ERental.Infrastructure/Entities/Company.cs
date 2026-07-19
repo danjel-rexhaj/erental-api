@@ -39,6 +39,8 @@ public partial class Company
 
     public double? Longitude { get; set; }
 
+    public bool? AllowCashPayment { get; set; }
+
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 
     public virtual ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();

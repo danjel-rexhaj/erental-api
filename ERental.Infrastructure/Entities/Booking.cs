@@ -23,6 +23,8 @@ public partial class Booking
 
     public string? ArsyejaRefuzimit { get; set; }
 
+    public string? PaymentMethod { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();

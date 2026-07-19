@@ -10,7 +10,7 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit);
+public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? PaymentMethod = null, string? PaypalCaptureId = null);
 public record CancelBookingDto(string? Reason);
 
 [ApiController]
@@ -20,12 +20,14 @@ public class BookingsController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IEmailService _emailService;
     private readonly IHubContext<NotificationHub> _hub;
+    private readonly IPayPalService _payPal;
 
-    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub)
+    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal)
     {
         _context = context;
         _emailService = emailService;
         _hub = hub;
+        _payPal = payPal;
     }
 
     private int GetUserId() =>
@@ -71,14 +73,42 @@ public class BookingsController : ControllerBase
             .Select(b => b.DataPerfundimit)
             .ToListAsync();
 
-        if (konfliktet.Count > 0)
-        {
-            var lirohetMe = konfliktet.Max().AddDays(1);
-            return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
-        }
+        var paymentMethod = dto.PaymentMethod ?? "cash";
+        if (paymentMethod != "cash" && paymentMethod != "paypal_deposit" && paymentMethod != "paypal_full")
+            return BadRequest("Menyre pagese e panjohur.");
+
+        if (paymentMethod == "cash" && car.Company.AllowCashPayment == false)
+            return BadRequest("Ky biznes nuk pranon pagesa cash. Zgjidh nje menyre tjeter pagese.");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         decimal cmimiTotal = diteRezervimi * car.CmimiDites;
+
+        // For online methods, the capture already happened via POST /api/Payments/paypal/capture — re-verify
+        // it here against PayPal directly rather than trusting the client's claimed amount/method.
+        decimal? shumaPaguarOnline = null;
+        if (paymentMethod != "cash")
+        {
+            if (string.IsNullOrWhiteSpace(dto.PaypalCaptureId))
+                return BadRequest("Mungon konfirmimi i pageses.");
+
+            var capture = await _payPal.GetCaptureAsync(dto.PaypalCaptureId);
+            if (!capture.Success)
+                return BadRequest("Pagesa nuk u konfirmua nga PayPal.");
+
+            var pritshme = paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal;
+            if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
+                return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
+
+            shumaPaguarOnline = capture.Amount;
+        }
+
+        if (konfliktet.Count > 0)
+        {
+            var lirohetMe = konfliktet.Max().AddDays(1);
+            if (paymentMethod != "cash" && dto.PaypalCaptureId != null)
+                await _payPal.RefundCaptureAsync(dto.PaypalCaptureId, shumaPaguarOnline!.Value);
+            return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
+        }
 
         var booking = new Booking
         {
@@ -87,11 +117,30 @@ public class BookingsController : ControllerBase
             DataFillimit = dto.DataFillimit,
             DataPerfundimit = dto.DataPerfundimit,
             CmimiTotal = cmimiTotal,
-            Statusi = "pending"
+            Statusi = "pending",
+            PaymentMethod = paymentMethod
         };
 
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
+
+        if (paymentMethod != "cash")
+        {
+            var company = car.Company;
+            decimal komisioni = company.BillingModel == "commission" ? cmimiTotal * (company.CommissionRate ?? 0) / 100 : 0;
+            _context.Payments.Add(new Payment
+            {
+                BookingId = booking.BookingId,
+                ShumaTotale = cmimiTotal,
+                Komisioni = komisioni,
+                ShumaBiznesit = cmimiTotal - komisioni,
+                ShumaPaguarOnline = shumaPaguarOnline,
+                MetodaPageses = paymentMethod,
+                PaypalCaptureId = dto.PaypalCaptureId,
+                Statusi = "completed"
+            });
+            await _context.SaveChangesAsync();
+        }
 
         var klienti = await _context.Users.FindAsync(userId);
         var makinaEmri = $"{car.Marka} {car.Modeli}";
@@ -104,6 +153,15 @@ public class BookingsController : ControllerBase
 
             if (car.Company.Email != null)
                 await _emailService.SendBookingRequestToBusinessAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
+
+            if (paymentMethod != "cash" && shumaPaguarOnline != null)
+            {
+                bool eshtePagesePlote = paymentMethod == "paypal_full";
+                if (klienti != null)
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false);
+                if (car.Company.Email != null)
+                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true);
+            }
         }
         catch { }
 
@@ -203,7 +261,7 @@ public class BookingsController : ControllerBase
                     ShumaTotale = booking.CmimiTotal,
                     Komisioni = komisioni,
                     ShumaBiznesit = shumaBiznesit,
-                    MetodaPageses = "card",
+                    MetodaPageses = booking.PaymentMethod ?? "cash",
                     Statusi = "completed"
                 };
 
@@ -313,7 +371,15 @@ public class BookingsController : ControllerBase
         if (block != null) _context.CarAvailabilityBlocks.Remove(block);
 
         var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == booking.BookingId);
-        if (payment != null) payment.Statusi = "refunded";
+        if (payment != null)
+        {
+            if (!string.IsNullOrEmpty(payment.PaypalCaptureId) && payment.ShumaPaguarOnline is > 0)
+            {
+                try { await _payPal.RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
+                catch { }
+            }
+            payment.Statusi = "refunded";
+        }
 
         await _context.SaveChangesAsync();
 
@@ -362,6 +428,7 @@ public class BookingsController : ControllerBase
         var bookings = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
             .Include(b => b.User)
+            .Include(b => b.Payments)
             .Where(b => b.Car.Company.OwnerUserId == userId)
             .OrderByDescending(b => b.DataKrijimit)
             .Select(b => new
@@ -373,8 +440,10 @@ public class BookingsController : ControllerBase
                 b.Statusi,
                 b.DataKrijimit,
                 b.ArsyejaRefuzimit,
+                b.PaymentMethod,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa },
-                Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp }
+                Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
+                Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId }).FirstOrDefault()
             })
             .ToListAsync();
 
@@ -389,6 +458,7 @@ public class BookingsController : ControllerBase
         var bookings = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
             .Include(b => b.Reviews)
+            .Include(b => b.Payments)
             .Where(b => b.UserId == userId)
             .ToListAsync();
         return Ok(bookings);

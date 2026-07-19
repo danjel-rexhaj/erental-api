@@ -270,6 +270,42 @@ public class EmailService : IEmailService
     }
 
 
+    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin)
+    {
+        var titulli = perBiznesin ? "Ke marre nje pagese te re" : "Pagesa u krye me sukses";
+        var pershkrimi = perBiznesin
+            ? $"Klienti <strong>{counterpartyName}</strong> pagoi {(eshtePagesePlote ? "shumen e plote" : "depoziten (1 dite)")} per <strong>{makina}</strong> permes PayPal."
+            : $"Pagesa jote per <strong>{makina}</strong> prane <strong>{counterpartyName}</strong> u krye me sukses permes PayPal.";
+
+        var body = $@"
+            <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>{titulli} ✓</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                Përshëndetje <strong>{emri}</strong>, {pershkrimi}
+            </p>
+
+            <div style='border:1px solid #ebebeb; border-radius:16px; padding:24px;'>
+                {SectionLabel("Fatura")}
+                <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; margin-top:8px;'>
+                  <tr>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Numri i konfirmimit</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>{Confirmim(bookingId)}</td>
+                  </tr>
+                  <tr>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Menyra</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>PayPal — {(eshtePagesePlote ? "Pagese e plote" : "Depozite (1 dite)")}</td>
+                  </tr>
+                  <tr>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Shuma e paguar</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#0f766e; font-size:15px; font-weight:800; text-align:right;'>{amountPaid}€</td>
+                  </tr>
+                </table>
+            </div>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), $"{titulli} — ERental", "", Wrap(body, titulli));
+        await Client.SendEmailAsync(msg);
+    }
+
+
     public async Task SendReviewRequestAsync(string toEmail, string emri, string makina, string bizniEmri)
     {
         var body = $@"

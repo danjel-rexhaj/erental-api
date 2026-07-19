@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+builder.Services.AddHttpClient<IPayPalService, PayPalService>();
 builder.Services.AddHostedService<BookingCompletionService>();
 
 builder.Services.AddControllers()

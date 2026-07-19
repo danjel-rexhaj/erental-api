@@ -82,6 +82,9 @@ public partial class ERentalDbContext : DbContext
                 .HasDefaultValueSql("'pending'::character varying")
                 .HasColumnName("statusi");
             entity.Property(e => e.ArsyejaRefuzimit).HasColumnName("arsyeja_refuzimit");
+            entity.Property(e => e.PaymentMethod)
+                .HasDefaultValueSql("'cash'::text")
+                .HasColumnName("payment_method");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.Car).WithMany(p => p.Bookings)
@@ -264,6 +267,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.LogoUrl).HasColumnName("logo_url");
             entity.Property(e => e.Latitude).HasColumnName("latitude");
             entity.Property(e => e.Longitude).HasColumnName("longitude");
+            entity.Property(e => e.AllowCashPayment)
+                .HasDefaultValue(true)
+                .HasColumnName("allow_cash_payment");
             entity.Property(e => e.Qyteti)
                 .HasMaxLength(50)
                 .HasColumnName("qyteti");
@@ -400,6 +406,11 @@ public partial class ERentalDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'pending'::character varying")
                 .HasColumnName("statusi");
+            entity.Property(e => e.PaypalOrderId).HasColumnName("paypal_order_id");
+            entity.Property(e => e.PaypalCaptureId).HasColumnName("paypal_capture_id");
+            entity.Property(e => e.ShumaPaguarOnline)
+                .HasPrecision(10, 2)
+                .HasColumnName("shuma_paguar_online");
 
             entity.HasOne(d => d.Booking).WithMany(p => p.Payments)
                 .HasForeignKey(d => d.BookingId)
