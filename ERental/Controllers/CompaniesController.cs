@@ -10,6 +10,7 @@ namespace ERental.Controllers;
 
 public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
 public record UpdateLocationDto(double Latitude, double Longitude);
+public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -136,6 +137,26 @@ public class CompaniesController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { logoUrl = url });
+    }
+
+    [HttpPut("my-company")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyCompany(UpdateCompanyDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Emri))
+            return BadRequest("Emri i biznesit nuk mund te jete bosh.");
+
+        var userId = GetUserId();
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        company.Emri = dto.Emri.Trim();
+        company.Telefoni = dto.Telefoni;
+        company.Adresa = dto.Adresa;
+        company.Qyteti = dto.Qyteti;
+        await _context.SaveChangesAsync();
+
+        return Ok(company);
     }
 
     [HttpPut("my-company/location")]
