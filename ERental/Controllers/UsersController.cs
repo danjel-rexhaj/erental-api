@@ -43,6 +43,7 @@ public class UsersController : ControllerBase
             user.Telefoni,
             user.HasWhatsapp,
             user.FotoProfili,
+            user.DataRegjistrimit,
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi
         });
