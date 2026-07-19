@@ -54,6 +54,9 @@ public class PayPalService : IPayPalService
         using var req = new HttpRequestMessage(HttpMethod.Post, "/v2/checkout/orders");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
+        // application_context.landing_page is deprecated — the current place to control the hosted
+        // checkout's landing screen is payment_source.paypal.experience_context. Without landing_page
+        // set to BILLING there, PayPal defaults to showing account login before the guest card form.
         object body_ = returnUrl != null && cancelUrl != null
             ? new
             {
@@ -62,15 +65,20 @@ public class PayPalService : IPayPalService
                 {
                     new { amount = new { currency_code = currency, value = amount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) } }
                 },
-                application_context = new
+                payment_source = new
                 {
-                    return_url = returnUrl,
-                    cancel_url = cancelUrl,
-                    user_action = "PAY_NOW",
-                    shipping_preference = "NO_SHIPPING",
-                    // Without this, PayPal's hosted page leads with account login. BILLING sends the
-                    // payer straight to the guest card-entry form instead.
-                    landing_page = "BILLING",
+                    paypal = new
+                    {
+                        experience_context = new
+                        {
+                            payment_method_preference = "IMMEDIATE_PAYMENT_REQUIRED",
+                            landing_page = "BILLING",
+                            shipping_preference = "NO_SHIPPING",
+                            user_action = "PAY_NOW",
+                            return_url = returnUrl,
+                            cancel_url = cancelUrl,
+                        }
+                    }
                 }
             }
             : new
@@ -97,7 +105,10 @@ public class PayPalService : IPayPalService
         {
             foreach (var link in links.EnumerateArray())
             {
-                if (link.GetProperty("rel").GetString() == "approve")
+                // "approve" is the classic rel name; specifying payment_source.paypal makes PayPal
+                // return "payer-action" instead for the same redirect-to-checkout link.
+                var rel = link.GetProperty("rel").GetString();
+                if (rel == "approve" || rel == "payer-action")
                 {
                     approveUrl = link.GetProperty("href").GetString();
                     break;
