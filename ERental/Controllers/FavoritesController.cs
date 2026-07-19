@@ -29,14 +29,21 @@ public class FavoritesController : ControllerBase
     public async Task<IActionResult> GetFavoriteCars()
     {
         var userId = GetUserId();
-        var cars = await _context.Favorites
+        var favoriteCarIds = await _context.Favorites
             .Where(f => f.UserId == userId)
             .OrderByDescending(f => f.DataKrijimit)
-            .Select(f => f.Car)
+            .Select(f => f.CarId)
+            .ToListAsync();
+
+        var cars = await _context.Cars
+            .Where(c => favoriteCarIds.Contains(c.CarId))
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
             .ToListAsync();
-        return Ok(cars);
+
+        // Contains()-based filtering doesn't preserve order, so re-sort to match the favorite date order.
+        var ordered = favoriteCarIds.Select(id => cars.FirstOrDefault(c => c.CarId == id)).Where(c => c != null);
+        return Ok(ordered);
     }
 
     [HttpPost("{carId}")]
