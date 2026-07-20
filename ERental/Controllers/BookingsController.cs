@@ -117,7 +117,7 @@ public class BookingsController : ControllerBase
 
         if (konfliktet.Count > 0)
         {
-            var lirohetMe = konfliktet.Max().AddDays(1);
+            var lirohetMe = konfliktet.Max();
             await _payPal.RefundCaptureAsync(dto.PaypalCaptureId!, shumaPaguarOnline!.Value);
             return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
         }
