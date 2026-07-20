@@ -204,7 +204,7 @@ public class BookingsController : ControllerBase
             return NotFound("Rezervimi nuk u gjet.");
 
 
-        if (booking.Car.Company.OwnerUserId != userId)
+        if (booking.Car.Company.OwnerUserId != userId && userId != 1)
             return Forbid();
 
 
@@ -389,19 +389,20 @@ public class BookingsController : ControllerBase
 
         bool eshteKlienti = booking.UserId == userId;
         bool eshteBiznesi = booking.Car.Company.OwnerUserId == userId;
-        if (!eshteKlienti && !eshteBiznesi) return Forbid();
+        bool eshteAdmin = userId == 1;
+        if (!eshteKlienti && !eshteBiznesi && !eshteAdmin) return Forbid();
 
         if (booking.Statusi == "cancelled") return BadRequest("Ky rezervim eshte anuluar tashme.");
         if (booking.Statusi == "completed") return BadRequest("S'mund te anulosh nje rezervim te perfunduar.");
 
-        if (eshteKlienti && !eshteBiznesi)
+        if (eshteKlienti && !eshteBiznesi && !eshteAdmin)
         {
             var oreQeKaluan = (DateTime.UtcNow - booking.DataKrijimit!.Value).TotalHours;
             if (oreQeKaluan > 12)
                 return BadRequest("Kane kaluar 12 ore nga rezervimi — anulimi nuk lejohet me nga platforma. Kontakto biznesin direkt.");
         }
 
-        if (eshteBiznesi && string.IsNullOrWhiteSpace(dto?.Reason))
+        if ((eshteBiznesi || eshteAdmin) && !eshteKlienti && string.IsNullOrWhiteSpace(dto?.Reason))
             return BadRequest("Duhet te jepesh nje arsye per refuzimin.");
 
         booking.Statusi = "cancelled";
@@ -488,6 +489,34 @@ public class BookingsController : ControllerBase
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
                 Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId }).FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return Ok(bookings);
+    }
+
+    [HttpGet("admin/all")]
+    [Authorize]
+    public async Task<IActionResult> GetAllBookingsAdmin()
+    {
+        if (GetUserId() != 1) return Forbid();
+        await PurgeExpiredCancelledAsync();
+
+        var bookings = await _context.Bookings
+            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .Include(b => b.User)
+            .OrderByDescending(b => b.DataKrijimit)
+            .Select(b => new
+            {
+                b.BookingId,
+                b.DataFillimit,
+                b.DataPerfundimit,
+                b.CmimiTotal,
+                b.Statusi,
+                b.DataKrijimit,
+                Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa },
+                Biznesi = new { b.Car.Company.CompanyId, b.Car.Company.Emri },
+                Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Email }
             })
             .ToListAsync();
 

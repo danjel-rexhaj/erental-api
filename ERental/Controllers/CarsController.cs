@@ -14,6 +14,7 @@ public record CreateCarDto(
     string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null);
 
 public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
+public record AdminUpdateCarDto(decimal? CmimiDites, string? Statusi);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -155,7 +156,7 @@ public class CarsController : ControllerBase
         var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
         if (car == null) return NotFound();
 
-        if (car.Company.OwnerUserId != userId)
+        if (car.Company.OwnerUserId != userId && userId != 1)
             return Forbid();
 
         car.Marka = dto.Marka;
@@ -176,6 +177,22 @@ public class CarsController : ControllerBase
         car.Amenities = dto.Amenities;
 
         await _context.SaveChangesAsync();
+        return Ok(car);
+    }
+
+    [HttpPut("{id}/admin")]
+    [Authorize]
+    public async Task<IActionResult> AdminUpdateCar(int id, AdminUpdateCarDto dto)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var car = await _context.Cars.FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+
+        if (dto.CmimiDites.HasValue) car.CmimiDites = dto.CmimiDites.Value;
+        if (!string.IsNullOrWhiteSpace(dto.Statusi)) car.Statusi = dto.Statusi;
+        await _context.SaveChangesAsync();
+
         return Ok(car);
     }
 

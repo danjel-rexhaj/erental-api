@@ -8,6 +8,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record UpdateMeDto(string Emri, string Mbiemri, string? Telefoni, bool HasWhatsapp);
+public record AdminUpdateUserDto(string Emri, string Mbiemri, string? Telefoni);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -85,5 +86,46 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { user.Emri, user.Mbiemri, user.Telefoni, user.HasWhatsapp });
+    }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetUsers()
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var companyOwnerIds = await _context.Companies.Select(c => c.OwnerUserId).ToListAsync();
+        var users = await _context.Users
+            .OrderByDescending(u => u.DataRegjistrimit)
+            .Select(u => new
+            {
+                u.UserId,
+                u.Emri,
+                u.Mbiemri,
+                u.Email,
+                u.Telefoni,
+                u.DataRegjistrimit,
+                HasCompany = companyOwnerIds.Contains(u.UserId)
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+    [HttpPut("{id}")]
+    [Authorize]
+    public async Task<IActionResult> AdminUpdateUser(int id, AdminUpdateUserDto dto)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
+
+        user.Emri = dto.Emri;
+        user.Mbiemri = dto.Mbiemri;
+        user.Telefoni = dto.Telefoni;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { user.UserId, user.Emri, user.Mbiemri, user.Telefoni });
     }
 }

@@ -11,6 +11,7 @@ namespace ERental.Controllers;
 public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
 public record UpdateLocationDto(double Latitude, double Longitude);
 public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti);
+public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -182,6 +183,28 @@ public class CompaniesController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { company.Latitude, company.Longitude });
+    }
+
+    [HttpPut("{id}/admin")]
+    [Authorize]
+    public async Task<IActionResult> AdminUpdateCompany(int id, AdminUpdateCompanyDto dto)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(dto.Emri))
+            return BadRequest("Emri i biznesit nuk mund te jete bosh.");
+
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
+        if (company == null) return NotFound();
+
+        company.Emri = dto.Emri.Trim();
+        company.Telefoni = dto.Telefoni;
+        company.Adresa = dto.Adresa;
+        company.Qyteti = dto.Qyteti;
+        if (!string.IsNullOrWhiteSpace(dto.Statusi)) company.Statusi = dto.Statusi;
+        await _context.SaveChangesAsync();
+
+        return Ok(company);
     }
 
     [HttpPut("{id}/verify")]
