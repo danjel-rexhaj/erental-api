@@ -345,6 +345,41 @@ public class BookingsController : ControllerBase
         }
     }
 
+    // Lets the business look at the client's license instead of asking them to send it over
+    // WhatsApp again. Every non-owner view gets logged (LicenseViews) so there's an accountable
+    // trail of who looked at whose license and when.
+    [HttpGet("{id}/license")]
+    [Authorize]
+    public async Task<IActionResult> GetLicense(int id)
+    {
+        var userId = GetUserId();
+
+        var booking = await _context.Bookings
+            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.BookingId == id);
+        if (booking == null) return NotFound();
+
+        bool eshteBiznesi = booking.Car.Company.OwnerUserId == userId;
+        bool eshteKlienti = booking.UserId == userId;
+        bool eshteAdmin = userId == 1;
+        if (!eshteBiznesi && !eshteKlienti && !eshteAdmin) return Forbid();
+
+        if (eshteBiznesi && booking.Statusi != "confirmed" && booking.Statusi != "completed")
+            return BadRequest("Patenta shihet vetem per rezervime te konfirmuara.");
+
+        if (string.IsNullOrWhiteSpace(booking.User.PatentaFotoPara) || string.IsNullOrWhiteSpace(booking.User.PatentaFotoMbrapa))
+            return NotFound("Klienti nuk e ka ngarkuar patenten akoma.");
+
+        if (!eshteKlienti)
+        {
+            _context.LicenseViews.Add(new LicenseView { BookingId = booking.BookingId, ViewedByUserId = userId });
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new { patentaFotoPara = booking.User.PatentaFotoPara, patentaFotoMbrapa = booking.User.PatentaFotoMbrapa });
+    }
+
     [HttpPut("{id}/verify-id")]
     [Authorize]
     public async Task<IActionResult> VerifyId(int id)

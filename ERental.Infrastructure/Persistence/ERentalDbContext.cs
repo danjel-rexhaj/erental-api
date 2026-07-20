@@ -45,6 +45,7 @@ public partial class ERentalDbContext : DbContext
     public virtual DbSet<CarView> CarViews { get; set; }
     public virtual DbSet<Favorite> Favorites { get; set; }
     public virtual DbSet<LoginLog> LoginLogs { get; set; }
+    public virtual DbSet<LicenseView> LicenseViews { get; set; }
 
     // At runtime the app always configures this via appsettings.json / env vars in Program.cs (AddDbContext).
     // This fallback only kicks in for design-time tooling (e.g. `dotnet ef`) run directly against this class,
@@ -631,6 +632,23 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.Car).WithMany(p => p.CarViews)
                 .HasForeignKey(d => d.CarId)
                 .HasConstraintName("car_views_car_id_fkey");
+        });
+
+        modelBuilder.Entity<LicenseView>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("license_views_pkey");
+            entity.ToTable("license_views");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
+            entity.Property(e => e.ViewedByUserId).HasColumnName("viewed_by_user_id");
+            entity.Property(e => e.DataShikimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_shikimit");
+
+            entity.HasOne(d => d.Booking).WithMany()
+                .HasForeignKey(d => d.BookingId)
+                .HasConstraintName("license_views_booking_id_fkey");
         });
 
         modelBuilder.Entity<LoginLog>(entity =>
