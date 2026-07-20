@@ -169,9 +169,9 @@ public class BookingsController : ControllerBase
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
-                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false);
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal);
                 if (car.Company.Email != null)
-                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true);
+                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }

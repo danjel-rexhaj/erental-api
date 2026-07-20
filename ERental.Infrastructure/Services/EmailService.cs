@@ -308,12 +308,23 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin)
+    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice)
     {
         var titulli = perBiznesin ? "Ke marre nje pagese te re" : "Pagesa u krye me sukses";
         var pershkrimi = perBiznesin
             ? $"Klienti <strong>{counterpartyName}</strong> pagoi {(eshtePagesePlote ? "shumen e plote" : "depoziten (1 dite)")} per <strong>{makina}</strong> me karte."
             : $"Pagesa jote per <strong>{makina}</strong> prane <strong>{counterpartyName}</strong> u krye me sukses me karte.";
+
+        var mbetetCash = totalPrice - amountPaid;
+        var rreshtiMbetur = eshtePagesePlote ? "" : $@"
+                  <tr>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Çmimi total i qerasë</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>{totalPrice}€</td>
+                  </tr>
+                  <tr>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Mbetet për t'u paguar cash</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#b45309; font-size:15px; font-weight:800; text-align:right;'>{mbetetCash}€</td>
+                  </tr>";
 
         var body = $@"
             <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>{titulli} ✓</h1>
@@ -333,9 +344,9 @@ public class EmailService : IEmailService
                     <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>Karte — {(eshtePagesePlote ? "Pagese e plote" : "Depozite (1 dite)")}</td>
                   </tr>
                   <tr>
-                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Shuma e paguar</td>
+                    <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Shuma e paguar me karte</td>
                     <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#0f766e; font-size:15px; font-weight:800; text-align:right;'>{amountPaid}€</td>
-                  </tr>
+                  </tr>{rreshtiMbetur}
                 </table>
             </div>";
 
