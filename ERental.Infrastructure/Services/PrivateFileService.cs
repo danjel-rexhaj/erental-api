@@ -10,8 +10,10 @@ public class PrivateFileService : IPrivateFileService
 
     private Amazon.S3.AmazonS3Client BuildClient()
     {
-        var accessKey = _config["R2:AccessKey"];
-        var secretKey = _config["R2:SecretKey"];
+        // Prefers a dedicated token scoped only to the private bucket (least privilege); falls
+        // back to the shared R2 credentials if no separate ones are configured.
+        var accessKey = _config["R2:PrivateAccessKey"] ?? _config["R2:AccessKey"];
+        var secretKey = _config["R2:PrivateSecretKey"] ?? _config["R2:SecretKey"];
         var endpoint = _config["R2:Endpoint"];
 
         var s3Config = new Amazon.S3.AmazonS3Config
