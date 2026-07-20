@@ -17,6 +17,21 @@ public class EmailService : IEmailService
     private SendGridClient Client => new(_config["SendGrid:ApiKey"]);
     private EmailAddress From => new(_config["SendGrid:FromEmail"], _config["SendGrid:FromName"]);
 
+    // SendGrid's client doesn't throw on a non-2xx response (rejected sender, bad template, rate
+    // limit, etc.) — it just returns the Response object, so every failure was previously silent
+    // (swallowed further by the callers' empty catch blocks). Logging here at least makes email
+    // failures visible in the Render logs instead of just "the email never arrived, no idea why".
+    private async Task SendAsync(SendGridMessage msg)
+    {
+        var response = await Client.SendEmailAsync(msg);
+        var code = (int)response.StatusCode;
+        if (code < 200 || code >= 300)
+        {
+            var body = await response.Body.ReadAsStringAsync();
+            Console.WriteLine($"SendGrid email failed ({code}): {body}");
+        }
+    }
+
     private static readonly string[] Dite = { "Hënë", "Martë", "Mërkurë", "Enjte", "Premte", "Shtunë", "Diel" };
     private static readonly string[] Muaj = { "Janar", "Shkurt", "Mars", "Prill", "Maj", "Qershor", "Korrik", "Gusht", "Shtator", "Tetor", "Nëntor", "Dhjetor" };
 
@@ -196,7 +211,7 @@ public class EmailService : IEmailService
             {CodeBox(code)}";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi yt i verifikimit — ERental", "", Wrap(body, "Përdor këtë kod për të verifikuar email-in tënd"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -215,7 +230,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi yt është në pritje — ERental", "", Wrap(body, $"Kërkesa jote për {makina} pret miratim"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -233,7 +248,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kërkesë e re rezervimi — ERental", "", Wrap(body, $"{klientiEmri} kërkoi të rezervojë {makina}"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -266,7 +281,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u konfirmua — ERental", "", Wrap(body, $"Gati për udhëtimin — {makina} nga {bizniEmri}"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -289,7 +304,7 @@ public class EmailService : IEmailService
             {TripCard(makina, "", dataFillimit, dataPerfundimit, bookingId, null, carPhotoUrl)}";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u anulua — ERental", "", Wrap(body, $"Rezervimi për {makina} u anulua"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -325,7 +340,7 @@ public class EmailService : IEmailService
             </div>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), $"{titulli} — ERental", "", Wrap(body, titulli));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -343,7 +358,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Le nje vleresim per qerane tende — ERental", "", Wrap(body, $"Si shkoi qeraja e {makina}?"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -363,7 +378,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi per fjalekalimin — ERental", "", Wrap(body, "Kodi yt për ndryshimin e fjalëkalimit"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
 
@@ -391,7 +406,7 @@ public class EmailService : IEmailService
         msg.SetSubject($"{subjekti} — ERental");
         msg.AddContent("text/html", Wrap(body));
 
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
     private string CheckBadge() => $@"
@@ -411,7 +426,7 @@ public class EmailService : IEmailService
             </a>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(adminEmail), $"Kërkesë verifikimi — {companyName}", "", Wrap(body, $"{companyName} pret verifikim"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
     public async Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName)
@@ -424,7 +439,7 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Biznesi yt u verifikua — ERental", "", Wrap(body, "Je gati të marrësh rezervime"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 
     public async Task SendWelcomeAsync(string toEmail, string emri)
@@ -439,6 +454,6 @@ public class EmailService : IEmailService
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Mirë se erdhe në ERental", "", Wrap(body, "Llogaria jote është gati"));
-        await Client.SendEmailAsync(msg);
+        await SendAsync(msg);
     }
 }

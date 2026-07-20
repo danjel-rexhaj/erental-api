@@ -106,7 +106,7 @@ public class CompaniesController : ControllerBase
                 if (admin?.Email != null)
                     await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);
             }
-            catch { }
+            catch (Exception ex) { Console.WriteLine($"Admin verification email error: {ex.Message}"); }
         }
 
         return Ok(new { company.CompanyId, company.Emri, company.Nipt, Statusi = "Pending verifikim" });
@@ -207,7 +207,7 @@ public class CompaniesController : ControllerBase
             if (company.Email != null)
                 await _emailService.SendCompanyVerifiedAsync(company.Email, company.OwnerUser?.Emri ?? "atje", company.Emri);
         }
-        catch { }
+        catch (Exception ex) { Console.WriteLine($"Company verified email error: {ex.Message}"); }
 
         return Ok(new { message = "Biznesi u verifikua.", company.EshteVerifikuar, company.CompanyId });
     }

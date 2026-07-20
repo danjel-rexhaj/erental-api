@@ -174,7 +174,7 @@ public class BookingsController : ControllerBase
                     await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true);
             }
         }
-        catch { }
+        catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }
 
         try
         {
@@ -304,8 +304,9 @@ public class BookingsController : ControllerBase
                     carPhotoUrl
                 );
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"ConfirmBooking email error: {ex.Message}");
             }
 
 
@@ -443,7 +444,7 @@ public class BookingsController : ControllerBase
                         booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl);
             }
         }
-        catch { }
+        catch (Exception ex) { Console.WriteLine($"CancelBooking email error: {ex.Message}"); }
 
         try
         {

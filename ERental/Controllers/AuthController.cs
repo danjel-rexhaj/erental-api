@@ -143,7 +143,7 @@ public class AuthController : ControllerBase
         _context.PendingRegistrations.Remove(pending);
         await _context.SaveChangesAsync();
 
-        try { await _emailService.SendWelcomeAsync(user.Email, user.Emri); } catch { }
+        try { await _emailService.SendWelcomeAsync(user.Email, user.Emri); } catch (Exception ex) { Console.WriteLine($"Welcome email error: {ex.Message}"); }
 
         var token = GenerateToken(user.Email, user.UserId);
         return Ok(new AuthResponseDto(token, user.Email, user.Emri, user.Mbiemri, user.Telefoni, user.HasWhatsapp ?? false, true, false));
