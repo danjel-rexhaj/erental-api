@@ -171,9 +171,9 @@ public class BookingsController : ControllerBase
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
-                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal);
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString());
                 if (car.Company.Email != null)
-                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal);
+                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString());
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }
@@ -399,6 +399,9 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
+            .Include(b => b.Car).ThenInclude(c => c.CarPhotos)
+            .Include(b => b.User)
+            .Include(b => b.Payments)
             .FirstOrDefaultAsync(b => b.BookingId == id);
         if (booking == null) return NotFound();
 
@@ -416,6 +419,32 @@ public class BookingsController : ControllerBase
                 booking.BookingId, "client_booking");
         }
         catch { }
+
+        try
+        {
+            var carPhotoUrl = booking.Car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? booking.Car.CarPhotos.FirstOrDefault()?.UrlFotos;
+            var shumaPaguarOnline = booking.Payments.FirstOrDefault()?.ShumaPaguarOnline;
+            var paymentLabel = booking.PaymentMethod switch
+            {
+                "paypal_full" => "Karte — pagese e plote",
+                "paypal_deposit" => "Karte (depozite) + pjesa tjeter cash",
+                _ => "Cash"
+            };
+
+            var dto = new RentalContractDto(
+                booking.BookingId,
+                booking.Car.Company.Emri, booking.Car.Company.Nipt, booking.Car.Company.Adresa, booking.Car.Company.Qyteti, booking.Car.Company.Telefoni, booking.Car.Company.Email,
+                $"{booking.User.Emri} {booking.User.Mbiemri}", booking.User.Telefoni, booking.User.Email,
+                $"{booking.Car.Marka} {booking.Car.Modeli}", booking.Car.Viti, booking.Car.Targa, booking.Car.Kategoria, carPhotoUrl,
+                booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.CmimiTotal, shumaPaguarOnline, paymentLabel
+            );
+
+            if (!string.IsNullOrWhiteSpace(booking.User.Email))
+                await _emailService.SendRentalContractAsync(booking.User.Email, dto);
+            if (!string.IsNullOrWhiteSpace(booking.Car.Company.Email))
+                await _emailService.SendRentalContractAsync(booking.Car.Company.Email!, dto);
+        }
+        catch (Exception ex) { Console.WriteLine($"VerifyId contract email error: {ex.Message}"); }
 
         return Ok(new { message = "Identiteti u verifikua.", booking });
     }
