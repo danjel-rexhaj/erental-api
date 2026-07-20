@@ -13,6 +13,8 @@ public record CreateCarDto(
     string Kategoria, int NumriVendeve, bool Klimatizimi, decimal CmimiDites,
     string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null);
 
+public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
+
 [ApiController]
 [Route("api/[controller]")]
 public class CarsController : ControllerBase
@@ -232,5 +234,86 @@ public class CarsController : ControllerBase
             .ToListAsync();
 
         return Ok(blocks);
+    }
+
+    // Lets a business block off dates for a car it owns to cover rentals arranged outside the
+    // platform (walk-ins, phone bookings) so those days don't get double-booked here too.
+    [HttpGet("{id}/blocks")]
+    [Authorize]
+    public async Task<IActionResult> GetBlocks(int id)
+    {
+        var userId = GetUserId();
+        var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+        if (car.Company.OwnerUserId != userId) return Forbid();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var blocks = await _context.CarAvailabilityBlocks
+            .Where(b => b.CarId == id && b.DataPerfundimit >= today)
+            .OrderBy(b => b.DataFillimit)
+            .Select(b => new
+            {
+                b.BlockId,
+                b.DataFillimit,
+                b.DataPerfundimit,
+                b.Shenim,
+                EshteRezervimPlatforme = b.Shenim != null && b.Shenim.StartsWith("Booking #")
+            })
+            .ToListAsync();
+
+        return Ok(blocks);
+    }
+
+    [HttpPost("{id}/blocks")]
+    [Authorize]
+    public async Task<IActionResult> CreateBlock(int id, CreateBlockDto dto)
+    {
+        var userId = GetUserId();
+        var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+        if (car.Company.OwnerUserId != userId) return Forbid();
+
+        if (dto.DataPerfundimit <= dto.DataFillimit)
+            return BadRequest("Data e perfundimit duhet te jete pas dates se fillimit.");
+
+        var konflikt = await _context.CarAvailabilityBlocks
+            .AnyAsync(b => b.CarId == id && b.DataFillimit < dto.DataPerfundimit && b.DataPerfundimit > dto.DataFillimit);
+        if (konflikt)
+            return BadRequest("Makina eshte tashme e zene per pjese te ketyre datave.");
+
+        var block = new CarAvailabilityBlock
+        {
+            CarId = id,
+            DataFillimit = dto.DataFillimit,
+            DataPerfundimit = dto.DataPerfundimit,
+            Arsyeja = "manual",
+            Shenim = string.IsNullOrWhiteSpace(dto.Shenim) ? "Rezervim jashte platformes" : dto.Shenim.Trim()
+        };
+
+        _context.CarAvailabilityBlocks.Add(block);
+        await _context.SaveChangesAsync();
+
+        return Ok(block);
+    }
+
+    [HttpDelete("{id}/blocks/{blockId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteBlock(int id, int blockId)
+    {
+        var userId = GetUserId();
+        var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+        if (car.Company.OwnerUserId != userId) return Forbid();
+
+        var block = await _context.CarAvailabilityBlocks.FirstOrDefaultAsync(b => b.BlockId == blockId && b.CarId == id);
+        if (block == null) return NotFound();
+
+        if (block.Shenim != null && block.Shenim.StartsWith("Booking #"))
+            return BadRequest("Ky bllokim eshte nje rezervim nga platforma dhe nuk mund te fshihet ketu.");
+
+        _context.CarAvailabilityBlocks.Remove(block);
+        await _context.SaveChangesAsync();
+
+        return Ok();
     }
 }
