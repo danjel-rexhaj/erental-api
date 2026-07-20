@@ -52,19 +52,8 @@ public class EmailService : IEmailService
         {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='height:5px; background:linear-gradient(90deg,#2dd4bf,#0f766e);'></div>
-
-          <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
-            <table role='presentation' cellpadding='0' cellspacing='0'>
-              <tr>
-                <td style='width:32px; vertical-align:middle;'>
-                  <div style='width:30px; height:30px; border-radius:50%; background:#0f766e; color:#ffffff; text-align:center; line-height:30px; font-weight:800; font-size:13px;'>ER</div>
-                </td>
-                <td style='padding-left:10px; vertical-align:middle;'>
-                  <span style='font-size:18px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
-                </td>
-              </tr>
-            </table>
+          <div style='background:#0f172a; padding:20px 40px;'>
+            <img src='https://erental.store/logo-dark.png' alt='ERental' height='32' style='height:32px; width:auto; display:block;' />
           </div>
 
           <div style='padding:40px;'>
@@ -427,15 +416,11 @@ public class EmailService : IEmailService
         {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='height:4px; background:#d97706;'></div>
-
-          <div style='padding:28px 40px 20px 40px;'>
-            <span style='font-size:19px; font-weight:800; letter-spacing:-0.4px;'>
-              <span style='color:#d97706;'>E</span><span style='color:#111111;'>Rental</span>
-            </span>
+          <div style='background:#0f172a; padding:20px 40px;'>
+            <img src='https://erental.store/logo-dark.png' alt='ERental' height='32' style='height:32px; width:auto; display:block;' />
           </div>
 
-          <div style='padding:8px 40px 40px 40px;'>
+          <div style='padding:32px 40px 40px 40px;'>
               {bodyHtml}
           </div>
 
