@@ -92,6 +92,16 @@ if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Without this, an unhandled exception anywhere below escapes before UseCors can attach its
+// header, so the browser reports a misleading "CORS policy" error instead of the real 500 —
+// this turns any such exception into a normal (still CORS-tagged) JSON error response.
+app.UseExceptionHandler(errApp => errApp.Run(async context =>
+{
+    context.Response.StatusCode = 500;
+    context.Response.ContentType = "application/json";
+    await context.Response.WriteAsync("{\"message\":\"Ndodhi nje gabim ne server.\"}");
+}));
+
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();

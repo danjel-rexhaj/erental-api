@@ -380,8 +380,15 @@ public class BookingsController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        var (stream, contentType) = await _privateFileService.DownloadAsync(key);
-        return File(stream, contentType ?? "image/jpeg");
+        try
+        {
+            var (stream, contentType) = await _privateFileService.DownloadAsync(key);
+            return File(stream, contentType ?? "image/jpeg");
+        }
+        catch (Amazon.S3.AmazonS3Exception)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPut("{id}/verify-id")]

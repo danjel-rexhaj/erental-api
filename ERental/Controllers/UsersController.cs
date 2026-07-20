@@ -101,8 +101,15 @@ public class UsersController : ControllerBase
         var key = side == "para" ? user.PatentaFotoPara : side == "mbrapa" ? user.PatentaFotoMbrapa : null;
         if (string.IsNullOrWhiteSpace(key)) return NotFound();
 
-        var (stream, contentType) = await _privateFileService.DownloadAsync(key);
-        return File(stream, contentType ?? "image/jpeg");
+        try
+        {
+            var (stream, contentType) = await _privateFileService.DownloadAsync(key);
+            return File(stream, contentType ?? "image/jpeg");
+        }
+        catch (Amazon.S3.AmazonS3Exception)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPost("me/photo")]
