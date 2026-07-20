@@ -554,6 +554,8 @@ public partial class ERentalDbContext : DbContext
                 .HasDefaultValue(false)
                 .HasColumnName("whatsapp_verified");
             entity.Property(e => e.FotoProfili).HasColumnName("foto_profili");
+            entity.Property(e => e.PatentaFotoPara).HasColumnName("patenta_foto_para");
+            entity.Property(e => e.PatentaFotoMbrapa).HasColumnName("patenta_foto_mbrapa");
             entity.Property(e => e.Mbiemri)
                 .HasMaxLength(50)
                 .HasColumnName("mbiemri");

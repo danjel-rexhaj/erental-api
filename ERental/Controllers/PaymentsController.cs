@@ -35,6 +35,10 @@ public class PaymentsController : ControllerBase
         if (dto.Method != "deposit" && dto.Method != "full")
             return BadRequest("Menyre pagese e panjohur.");
 
+        var user = await _context.Users.FindAsync(GetUserId());
+        if (user == null || string.IsNullOrWhiteSpace(user.PatentaFotoPara) || string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa))
+            return BadRequest("Duhet te shtosh foton e patentes (para dhe mbrapa) ne profilin tend para se te rezervosh.");
+
         var car = await _context.Cars.FindAsync(dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 

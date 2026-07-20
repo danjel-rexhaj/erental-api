@@ -45,9 +45,40 @@ public class UsersController : ControllerBase
             user.HasWhatsapp,
             user.FotoProfili,
             user.DataRegjistrimit,
+            user.PatentaFotoPara,
+            user.PatentaFotoMbrapa,
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi
         });
+    }
+
+    // The client-side booking flow gates the pay button on this — checked again server-side in
+    // PaymentsController.CreateOrder so a request crafted without going through the UI can't skip it.
+    [HttpPost("me/license")]
+    [Authorize]
+    public async Task<IActionResult> UploadLicense(IFormFile? para, IFormFile? mbrapa)
+    {
+        if ((para == null || para.Length == 0) && (mbrapa == null || mbrapa.Length == 0))
+            return BadRequest("Nuk u dergua asnje foto.");
+
+        var userId = GetUserId();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+        if (user == null) return NotFound();
+
+        if (para != null && para.Length > 0)
+        {
+            using var stream = para.OpenReadStream();
+            user.PatentaFotoPara = await _fileUploadService.UploadAsync(stream, para.FileName, para.ContentType, $"users/{userId}/patenta");
+        }
+        if (mbrapa != null && mbrapa.Length > 0)
+        {
+            using var stream = mbrapa.OpenReadStream();
+            user.PatentaFotoMbrapa = await _fileUploadService.UploadAsync(stream, mbrapa.FileName, mbrapa.ContentType, $"users/{userId}/patenta");
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { user.PatentaFotoPara, user.PatentaFotoMbrapa });
     }
 
     [HttpPost("me/photo")]
