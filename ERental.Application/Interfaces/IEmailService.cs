@@ -9,7 +9,8 @@ public record RentalContractDto(
     string CompanyName, string CompanyNipt, string? CompanyAddress, string? CompanyCity, string? CompanyPhone, string? CompanyEmail,
     string ClientName, string? ClientPhone, string? ClientEmail,
     string CarMakeModel, int CarYear, string? CarPlate, string? CarCategory, string? CarPhotoUrl,
-    string DataFillimit, string DataPerfundimit, decimal TotalPrice, decimal? PaidOnline, string PaymentMethodLabel
+    string DataFillimit, string DataPerfundimit, decimal TotalPrice, decimal? PaidOnline, string PaymentMethodLabel,
+    string ContractUrl
 );
 
 public interface IEmailService

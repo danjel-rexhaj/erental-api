@@ -485,7 +485,7 @@ public class EmailService : IEmailService
     public string BuildContractHtmlPage(RentalContractDto dto)
     {
         var confirmim = Confirmim(dto.BookingId);
-        var qrSrc = QrDataUri($"ERental {confirmim}");
+        var qrSrc = QrDataUri(dto.ContractUrl);
 
         var mbetetCash = dto.PaidOnline.HasValue ? dto.TotalPrice - dto.PaidOnline.Value : (decimal?)null;
 
@@ -501,6 +501,13 @@ public class EmailService : IEmailService
             priceRows.Add(("Mbetet për t'u paguar cash", $"{mbetetCash.Value}€"));
 
         var body = $@"
+            <div style='text-align:center; margin-bottom:20px;'>
+                <div style='width:48px; height:48px; border-radius:50%; background:#dcfce7; display:inline-flex; align-items:center; justify-content:center; margin-bottom:10px;'>
+                    <span style='color:#166534; font-size:24px; font-weight:800;'>✓</span>
+                </div>
+                <p style='color:#166534; font-size:14px; font-weight:800; margin:0;'>Rezervim i verifikuar</p>
+            </div>
+
             <div style='text-align:center; margin-bottom:24px;'>
                 <p style='color:#0f766e; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin:0 0 6px 0;'>Kontratë Qeraje · Marketplace ERental</p>
                 <h1 style='color:#111111; font-size:21px; font-weight:800; margin:0;'>Rezervimi {confirmim}</h1>

@@ -457,7 +457,8 @@ public class BookingsController : ControllerBase
             booking.Car.Company.Emri, booking.Car.Company.Nipt, booking.Car.Company.Adresa, booking.Car.Company.Qyteti, booking.Car.Company.Telefoni, booking.Car.Company.Email,
             $"{booking.User.Emri} {booking.User.Mbiemri}", booking.User.Telefoni, booking.User.Email,
             $"{booking.Car.Marka} {booking.Car.Modeli}", booking.Car.Viti, booking.Car.Targa, booking.Car.Kategoria, carPhotoUrl,
-            booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.CmimiTotal, shumaPaguarOnline, paymentLabel
+            booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.CmimiTotal, shumaPaguarOnline, paymentLabel,
+            $"https://erental-api.onrender.com/api/Bookings/{booking.BookingId}/contract/{booking.ContractToken}"
         );
 
         var html = _emailService.BuildContractHtmlPage(dto);
