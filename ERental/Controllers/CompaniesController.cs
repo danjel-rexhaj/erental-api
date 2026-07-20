@@ -18,11 +18,13 @@ public class CompaniesController : ControllerBase
 {
     private readonly ERentalDbContext _context;
     private readonly IFileUploadService _fileUploadService;
+    private readonly IEmailService _emailService;
 
-    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService)
+    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService, IEmailService emailService)
     {
         _context = context;
         _fileUploadService = fileUploadService;
+        _emailService = emailService;
     }
 
     private int GetUserId() =>
@@ -97,6 +99,14 @@ public class CompaniesController : ControllerBase
                 Statusi = "pending"
             });
             await _context.SaveChangesAsync();
+
+            try
+            {
+                var admin = await _context.Users.FindAsync(1);
+                if (admin?.Email != null)
+                    await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);
+            }
+            catch { }
         }
 
         return Ok(new { company.CompanyId, company.Emri, company.Nipt, Statusi = "Pending verifikim" });
@@ -183,7 +193,7 @@ public class CompaniesController : ControllerBase
         if (userId != 1)
             return Forbid();
 
-        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
+        var company = await _context.Companies.Include(c => c.OwnerUser).FirstOrDefaultAsync(c => c.CompanyId == id);
         if (company == null) return NotFound();
 
         company.EshteVerifikuar = true;
@@ -191,6 +201,13 @@ public class CompaniesController : ControllerBase
         company.Statusi = "active";
 
         await _context.SaveChangesAsync();
+
+        try
+        {
+            if (company.Email != null)
+                await _emailService.SendCompanyVerifiedAsync(company.Email, company.OwnerUser?.Emri ?? "atje", company.Emri);
+        }
+        catch { }
 
         return Ok(new { message = "Biznesi u verifikua.", company.EshteVerifikuar, company.CompanyId });
     }

@@ -415,4 +415,85 @@ public class EmailService : IEmailService
 
         await Client.SendEmailAsync(msg);
     }
+
+    // Professional shell for account/business lifecycle emails (verification, welcome) — gold/dark
+    // brand accent instead of the teal used on booking emails, deliberately understated.
+    private string WrapBrand(string bodyHtml, string preheader = "")
+    {
+        var preheaderHtml = string.IsNullOrEmpty(preheader) ? "" : $@"
+          <div style='display:none; max-height:0; overflow:hidden; mso-hide:all;'>{preheader}</div>";
+
+        return $@"
+        {preheaderHtml}
+        <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
+
+          <div style='height:4px; background:#d97706;'></div>
+
+          <div style='padding:28px 40px 20px 40px;'>
+            <span style='font-size:19px; font-weight:800; letter-spacing:-0.4px;'>
+              <span style='color:#d97706;'>E</span><span style='color:#111111;'>Rental</span>
+            </span>
+          </div>
+
+          <div style='padding:8px 40px 40px 40px;'>
+              {bodyHtml}
+          </div>
+
+          <div style='padding:28px 40px 32px 40px; border-top:1px solid #ebebeb;'>
+            <p style='color:#111111; font-size:13px; font-weight:700; margin:0 0 4px 0;'>ERental Albania</p>
+            <p style='color:#767676; font-size:12px; line-height:1.6; margin:0;'>
+                <a href='mailto:info@erental.store' style='color:#111111; text-decoration:underline;'>info@erental.store</a>
+            </p>
+          </div>
+
+        </div>";
+    }
+
+    private string CheckBadge() => $@"
+        <div style='width:56px; height:56px; border-radius:50%; background:#111111; text-align:center; line-height:56px; margin:0 0 20px 0;'>
+          <span style='color:#ffffff; font-size:26px;'>&#10003;</span>
+        </div>";
+
+    public async Task SendAdminVerificationRequestAsync(string adminEmail, string companyName, int companyId)
+    {
+        var body = $@"
+            <h1 style='color:#111111; font-size:20px; font-weight:700; margin:0 0 16px 0;'>Kërkesë e re verifikimi</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                Biznesi <strong>{companyName}</strong> (ID {companyId}) dërgoi certifikatën e NIPT-it dhe pret verifikim.
+            </p>
+            <a href='https://erental.store/#/biznesi?tab=admin' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
+                Shqyrto kërkesën
+            </a>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(adminEmail), $"Kërkesë verifikimi — {companyName}", "", WrapBrand(body, $"{companyName} pret verifikim"));
+        await Client.SendEmailAsync(msg);
+    }
+
+    public async Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName)
+    {
+        var body = $@"
+            {CheckBadge()}
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Biznesi u verifikua</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Përshëndetje {emri}, <strong>{companyName}</strong> u shqyrtua dhe u verifikua nga ekipi i ERental. Makinat e tua tani shfaqen me shenjën ""I verifikuar"" dhe klientët mund t'i rezervojnë.
+            </p>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Biznesi yt u verifikua — ERental", "", WrapBrand(body, "Je gati të marrësh rezervime"));
+        await Client.SendEmailAsync(msg);
+    }
+
+    public async Task SendWelcomeAsync(string toEmail, string emri)
+    {
+        var body = $@"
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Mirë se erdhe në ERental</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 16px 0;'>
+                Përshëndetje {emri}, llogaria jote u aktivizua. ERental është platforma që lidh biznese të verifikuara të qerasë së makinave me klientë në të gjithë Shqipërinë — kërko, krahaso dhe rezervo, me pagesë të sigurt online.
+            </p>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Kur të jesh gati, kërko makinën për datat e tua dhe rezervo direkt nga platforma.
+            </p>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Mirë se erdhe në ERental", "", WrapBrand(body, "Llogaria jote është gati"));
+        await Client.SendEmailAsync(msg);
+    }
 }

@@ -15,4 +15,7 @@ public interface IEmailService
     Task SendReviewRequestAsync(string toEmail, string emri, string makina, string bizniEmri);
     Task SendPasswordCodeAsync(string toEmail, string emri, string code);
     Task SendContactMessageAsync(string emriDerguesi, string emailDerguesi, string subjekti, string mesazhi);
+    Task SendAdminVerificationRequestAsync(string adminEmail, string companyName, int companyId);
+    Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName);
+    Task SendWelcomeAsync(string toEmail, string emri);
 }
