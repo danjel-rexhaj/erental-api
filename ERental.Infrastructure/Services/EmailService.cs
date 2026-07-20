@@ -52,8 +52,19 @@ public class EmailService : IEmailService
         {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='background:#0f172a; padding:20px 40px;'>
-            <img src='https://erental.store/logo-dark.png' alt='ERental' height='32' style='height:32px; width:auto; display:block;' />
+          <div style='height:5px; background:linear-gradient(90deg,#2dd4bf,#0f766e);'></div>
+
+          <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
+            <table role='presentation' cellpadding='0' cellspacing='0'>
+              <tr>
+                <td style='width:32px; vertical-align:middle;'>
+                  <div style='width:30px; height:30px; border-radius:50%; background:#0f766e; color:#ffffff; text-align:center; line-height:30px; font-weight:800; font-size:13px;'>ER</div>
+                </td>
+                <td style='padding-left:10px; vertical-align:middle;'>
+                  <span style='font-size:18px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
+                </td>
+              </tr>
+            </table>
           </div>
 
           <div style='padding:40px;'>
@@ -71,31 +82,6 @@ public class EmailService : IEmailService
             </p>
           </div>
 
-        </div>";
-    }
-
-    // Minimal centered shell used only for one-time verification codes — deliberately plain
-    // (no rich header/footer) so the code is the only thing that matters at a glance.
-    private string WrapCode(string bodyHtml, string preheader = "")
-    {
-        var preheaderHtml = string.IsNullOrEmpty(preheader) ? "" : $@"
-          <div style='display:none; max-height:0; overflow:hidden; mso-hide:all;'>{preheader}</div>";
-
-        return $@"
-        {preheaderHtml}
-        <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; background:#ffffff; color:#222222; text-align:center; padding:48px 32px;'>
-
-          <p style='font-size:20px; font-weight:800; letter-spacing:-0.4px; margin:0 0 40px 0;'>
-            <span style='color:#d97706;'>E</span><span style='color:#111111;'>Rental</span>
-          </p>
-
-          {bodyHtml}
-
-          <div style='height:1px; background:#ebebeb; margin:40px 0 24px 0;'></div>
-
-          <p style='color:#a3a3a3; font-size:12px; line-height:1.6; margin:0;'>
-              ERental Albania · <a href='mailto:info@erental.store' style='color:#a3a3a3; text-decoration:underline;'>info@erental.store</a>
-          </p>
         </div>";
     }
 
@@ -130,18 +116,10 @@ public class EmailService : IEmailService
         </table>";
 
     private string CodeBox(string code) => $@"
-        <div style='background:#f0fdfa; border:1px solid #99f6e4; border-radius:12px; padding:28px; text-align:center; margin:28px 0;'>
-            <span style='font-size:32px; font-weight:700; letter-spacing:8px; color:#0f766e;'>{code}</span>
+        <div style='text-align:center; padding:20px 0; margin:28px 0;'>
+            <span style='font-size:36px; font-weight:800; letter-spacing:8px; color:#111111;'>{code}</span>
         </div>
-        <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash.</p>";
-
-    // Plain, borderless code display for the minimal WrapCode shell — the code itself carries an
-    // autocomplete="one-time-code" hint on the matching frontend input, so keeping the number in a
-    // predictable "code: NNNNNN" shape near the top of the email helps Mail/Safari suggest it on the keyboard.
-    private string PlainCodeDisplay(string code) => $@"
-        <p style='color:#484848; font-size:15px; margin:0 0 28px 0;'>Kodi yt i verifikimit:</p>
-        <p style='font-size:40px; font-weight:800; letter-spacing:10px; color:#111111; margin:0 0 28px 4px;'>{code}</p>
-        <p style='color:#a3a3a3; font-size:13px; line-height:1.6; margin:0;'>Kodi skadon pas 15 minutash. Mos e ndaj me askënd.</p>";
+        <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash. Mos e ndaj me askënd.</p>";
 
     // Airbnb-style reservation card: photo, pickup/return dates, location, confirmation code, price, host contact.
     private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null)
@@ -209,10 +187,15 @@ public class EmailService : IEmailService
     public async Task SendVerificationCodeAsync(string toEmail, string emri, string code)
     {
         var body = $@"
-            <p style='color:#484848; font-size:15px; margin:0 0 4px 0;'>Përshëndetje {emri},</p>
-            {PlainCodeDisplay(code)}";
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Verifiko email-in tënd</h1>
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi yt i verifikimit — ERental", "", WrapCode(body, "Përdor këtë kod për të verifikuar email-in tënd"));
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Përshëndetje {emri}, përdor kodin më poshtë për të verifikuar email-in dhe për të aktivizuar llogarinë ERental.
+            </p>
+
+            {CodeBox(code)}";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi yt i verifikimit — ERental", "", Wrap(body, "Përdor këtë kod për të verifikuar email-in tënd"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -367,13 +350,19 @@ public class EmailService : IEmailService
     public async Task SendPasswordCodeAsync(string toEmail, string emri, string code)
     {
         var body = $@"
-            <p style='color:#484848; font-size:15px; margin:0 0 4px 0;'>Përshëndetje {emri},</p>
-            {PlainCodeDisplay(code)}
-            <p style='color:#a3a3a3; font-size:12px; line-height:1.6; margin:16px 0 0 0;'>
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Kodi për fjalëkalimin</h1>
+
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Përshëndetje <strong>{emri}</strong>, përdor kodin më poshtë për të vazhduar me ndryshimin e fjalëkalimit tënd.
+            </p>
+
+            {CodeBox(code)}
+
+            <p style='color:#717171; font-size:13px; text-align:center; margin:8px 0 0 0;'>
                 Nëse s'e ke kërkuar ti, shpërnfille këtë email.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi per fjalekalimin — ERental", "", WrapCode(body, "Kodi yt për ndryshimin e fjalëkalimit"));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kodi per fjalekalimin — ERental", "", Wrap(body, "Kodi yt për ndryshimin e fjalëkalimit"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -405,35 +394,6 @@ public class EmailService : IEmailService
         await Client.SendEmailAsync(msg);
     }
 
-    // Professional shell for account/business lifecycle emails (verification, welcome) — gold/dark
-    // brand accent instead of the teal used on booking emails, deliberately understated.
-    private string WrapBrand(string bodyHtml, string preheader = "")
-    {
-        var preheaderHtml = string.IsNullOrEmpty(preheader) ? "" : $@"
-          <div style='display:none; max-height:0; overflow:hidden; mso-hide:all;'>{preheader}</div>";
-
-        return $@"
-        {preheaderHtml}
-        <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
-
-          <div style='background:#0f172a; padding:20px 40px;'>
-            <img src='https://erental.store/logo-dark.png' alt='ERental' height='32' style='height:32px; width:auto; display:block;' />
-          </div>
-
-          <div style='padding:32px 40px 40px 40px;'>
-              {bodyHtml}
-          </div>
-
-          <div style='padding:28px 40px 32px 40px; border-top:1px solid #ebebeb;'>
-            <p style='color:#111111; font-size:13px; font-weight:700; margin:0 0 4px 0;'>ERental Albania</p>
-            <p style='color:#767676; font-size:12px; line-height:1.6; margin:0;'>
-                <a href='mailto:info@erental.store' style='color:#111111; text-decoration:underline;'>info@erental.store</a>
-            </p>
-          </div>
-
-        </div>";
-    }
-
     private string CheckBadge() => $@"
         <div style='width:56px; height:56px; border-radius:50%; background:#111111; text-align:center; line-height:56px; margin:0 0 20px 0;'>
           <span style='color:#ffffff; font-size:26px;'>&#10003;</span>
@@ -450,7 +410,7 @@ public class EmailService : IEmailService
                 Shqyrto kërkesën
             </a>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(adminEmail), $"Kërkesë verifikimi — {companyName}", "", WrapBrand(body, $"{companyName} pret verifikim"));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(adminEmail), $"Kërkesë verifikimi — {companyName}", "", Wrap(body, $"{companyName} pret verifikim"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -463,7 +423,7 @@ public class EmailService : IEmailService
                 Përshëndetje {emri}, <strong>{companyName}</strong> u shqyrtua dhe u verifikua nga ekipi i ERental. Makinat e tua tani shfaqen me shenjën ""I verifikuar"" dhe klientët mund t'i rezervojnë.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Biznesi yt u verifikua — ERental", "", WrapBrand(body, "Je gati të marrësh rezervime"));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Biznesi yt u verifikua — ERental", "", Wrap(body, "Je gati të marrësh rezervime"));
         await Client.SendEmailAsync(msg);
     }
 
@@ -478,7 +438,7 @@ public class EmailService : IEmailService
                 Kur të jesh gati, kërko makinën për datat e tua dhe rezervo direkt nga platforma.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Mirë se erdhe në ERental", "", WrapBrand(body, "Llogaria jote është gati"));
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Mirë se erdhe në ERental", "", Wrap(body, "Llogaria jote është gati"));
         await Client.SendEmailAsync(msg);
     }
 }
