@@ -217,6 +217,9 @@ public class BookingsController : ControllerBase
         if (booking.Statusi != "pending")
             return BadRequest("Ky rezervim nuk mund te konfirmohet.");
 
+        if (!booking.IdVerifikuar)
+            return BadRequest("Duhet te verifikosh patenten e klientit para se te miratosh rezervimin.");
+
 
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -224,6 +227,7 @@ public class BookingsController : ControllerBase
         {
             // Ndrysho statusin
             booking.Statusi = "confirmed";
+            booking.ContractToken ??= Guid.NewGuid();
 
 
             // Kontrollo nese ekziston bllokimi i makines
@@ -291,6 +295,7 @@ public class BookingsController : ControllerBase
             try
             {
                 var carPhotoUrl = booking.Car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? booking.Car.CarPhotos.FirstOrDefault()?.UrlFotos;
+                var contractUrl = $"https://erental-api.onrender.com/api/Bookings/{booking.BookingId}/contract/{booking.ContractToken}";
                 await _emailService.SendBookingConfirmedAsync(
                     booking.User.Email,
                     booking.User.Emri,
@@ -303,7 +308,8 @@ public class BookingsController : ControllerBase
                     company.Adresa,
                     company.Qyteti,
                     company.Telefoni,
-                    carPhotoUrl
+                    carPhotoUrl,
+                    contractUrl
                 );
             }
             catch (Exception ex)
@@ -368,8 +374,8 @@ public class BookingsController : ControllerBase
         bool eshteAdmin = userId == 1;
         if (!eshteBiznesi && !eshteKlienti && !eshteAdmin) return Forbid();
 
-        if (eshteBiznesi && booking.Statusi != "confirmed" && booking.Statusi != "completed")
-            return BadRequest("Patenta shihet vetem per rezervime te konfirmuara.");
+        if (eshteBiznesi && booking.Statusi == "cancelled")
+            return BadRequest("Ky rezervim eshte anuluar.");
 
         var key = side == "para" ? booking.User.PatentaFotoPara : side == "mbrapa" ? booking.User.PatentaFotoMbrapa : null;
         if (string.IsNullOrWhiteSpace(key)) return NotFound();
@@ -399,9 +405,6 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Car).ThenInclude(c => c.Company)
-            .Include(b => b.Car).ThenInclude(c => c.CarPhotos)
-            .Include(b => b.User)
-            .Include(b => b.Payments)
             .FirstOrDefaultAsync(b => b.BookingId == id);
         if (booking == null) return NotFound();
 
@@ -415,38 +418,50 @@ public class BookingsController : ControllerBase
         try
         {
             await NotifyAsync(booking.UserId, "Identiteti u verifikua",
-                $"{booking.Car.Company.Emri} konfirmoi identitetin tend — je gati per te marre makinen.",
+                $"{booking.Car.Company.Emri} konfirmoi identitetin tend — tani mund te miratohet rezervimi.",
                 booking.BookingId, "client_booking");
         }
         catch { }
 
-        try
-        {
-            var carPhotoUrl = booking.Car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? booking.Car.CarPhotos.FirstOrDefault()?.UrlFotos;
-            var shumaPaguarOnline = booking.Payments.FirstOrDefault()?.ShumaPaguarOnline;
-            var paymentLabel = booking.PaymentMethod switch
-            {
-                "paypal_full" => "Karte — pagese e plote",
-                "paypal_deposit" => "Karte (depozite) + pjesa tjeter cash",
-                _ => "Cash"
-            };
-
-            var dto = new RentalContractDto(
-                booking.BookingId,
-                booking.Car.Company.Emri, booking.Car.Company.Nipt, booking.Car.Company.Adresa, booking.Car.Company.Qyteti, booking.Car.Company.Telefoni, booking.Car.Company.Email,
-                $"{booking.User.Emri} {booking.User.Mbiemri}", booking.User.Telefoni, booking.User.Email,
-                $"{booking.Car.Marka} {booking.Car.Modeli}", booking.Car.Viti, booking.Car.Targa, booking.Car.Kategoria, carPhotoUrl,
-                booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.CmimiTotal, shumaPaguarOnline, paymentLabel
-            );
-
-            if (!string.IsNullOrWhiteSpace(booking.User.Email))
-                await _emailService.SendRentalContractAsync(booking.User.Email, dto);
-            if (!string.IsNullOrWhiteSpace(booking.Car.Company.Email))
-                await _emailService.SendRentalContractAsync(booking.Car.Company.Email!, dto);
-        }
-        catch (Exception ex) { Console.WriteLine($"VerifyId contract email error: {ex.Message}"); }
-
         return Ok(new { message = "Identiteti u verifikua.", booking });
+    }
+
+    // Public — no [Authorize], since this is opened from a link in the booking-confirmed email
+    // where the recipient isn't necessarily logged in. Guarded by the per-booking random token
+    // instead; never includes the license photos, only what's already visible in the app.
+    [HttpGet("{id}/contract/{token}")]
+    public async Task<IActionResult> GetContractPage(int id, Guid token)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .Include(b => b.User)
+            .Include(b => b.Payments)
+            .FirstOrDefaultAsync(b => b.BookingId == id);
+        if (booking == null || booking.ContractToken == null || booking.ContractToken != token)
+            return NotFound();
+
+        var carPhotoUrl = (await _context.CarPhotos.Where(p => p.CarId == booking.CarId).ToListAsync())
+            .OrderByDescending(p => p.EshteKryesore == true)
+            .Select(p => p.UrlFotos)
+            .FirstOrDefault();
+        var shumaPaguarOnline = booking.Payments.FirstOrDefault()?.ShumaPaguarOnline;
+        var paymentLabel = booking.PaymentMethod switch
+        {
+            "paypal_full" => "Karte — pagese e plote",
+            "paypal_deposit" => "Karte (depozite) + pjesa tjeter cash",
+            _ => "Cash"
+        };
+
+        var dto = new RentalContractDto(
+            booking.BookingId,
+            booking.Car.Company.Emri, booking.Car.Company.Nipt, booking.Car.Company.Adresa, booking.Car.Company.Qyteti, booking.Car.Company.Telefoni, booking.Car.Company.Email,
+            $"{booking.User.Emri} {booking.User.Mbiemri}", booking.User.Telefoni, booking.User.Email,
+            $"{booking.Car.Marka} {booking.Car.Modeli}", booking.Car.Viti, booking.Car.Targa, booking.Car.Kategoria, carPhotoUrl,
+            booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.CmimiTotal, shumaPaguarOnline, paymentLabel
+        );
+
+        var html = _emailService.BuildContractHtmlPage(dto);
+        return Content(html, "text/html");
     }
 
     [HttpPut("{id}/cancel")]

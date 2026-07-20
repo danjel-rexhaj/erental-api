@@ -189,23 +189,13 @@ public class EmailService : IEmailService
         </div>";
     }
 
-    // Inline (cid:) attachment rather than a hosted image URL — keeps the QR self-contained in
-    // the email with no dependency on our servers still being up when someone opens it later.
-    private Attachment QrAttachment(string text, string contentId)
+    private static string QrDataUri(string text)
     {
         using var generator = new QRCodeGenerator();
         var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
         var png = new PngByteQRCode(data);
         var bytes = png.GetGraphic(10);
-
-        return new Attachment
-        {
-            Content = Convert.ToBase64String(bytes),
-            Type = "image/png",
-            Filename = "kontrata-qr.png",
-            Disposition = "inline",
-            ContentId = contentId
-        };
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
     }
 
     // ---- emails -------------------------------------------------------
@@ -263,8 +253,15 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress = null, string? companyCity = null, string? companyPhone = null, string? carPhotoUrl = null)
+    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null)
     {
+        var contractButton = string.IsNullOrEmpty(contractUrl) ? "" : $@"
+            <div style='text-align:center; margin:0 0 24px 0;'>
+                <a href='{contractUrl}' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 22px; border-radius:8px;'>
+                    Merr kontratën e qerasë
+                </a>
+            </div>";
+
         var body = $@"
             <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Rezervimi u konfirmua ✓</h1>
             <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
@@ -273,8 +270,10 @@ public class EmailService : IEmailService
 
             {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone)}
 
+            {contractButton}
+
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
-                Shko në adresën e biznesit në datën e caktuar. Sapo biznesi të verifikojë patentën tënde (të ngarkuar tashmë në profilin tënd ERental) do të marrësh kontratën e qerasë me email. Nëse ndryshon plan, mund ta anulosh nga ""Rezervimet e mia"" në ERental.
+                Shko në adresën e biznesit në datën e caktuar. Nëse ndryshon plan, mund ta anulosh nga ""Rezervimet e mia"" në ERental.
             </p>";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Rezervimi u konfirmua — ERental", "", Wrap(body, $"Gati për udhëtimin — {makina} nga {bizniEmri}"));
@@ -479,14 +478,14 @@ public class EmailService : IEmailService
         await SendAsync(msg);
     }
 
-    // Sent to both the company and the client once the business verifies the client's license —
-    // a proper document (photo, dates, price, both parties' details, a scannable QR of the
-    // confirmation code) instead of the old "send your license over WhatsApp" instruction.
-    public async Task SendRentalContractAsync(string toEmail, RentalContractDto dto)
+    // Standalone HTML page (not an email) linked from the "Merr kontratën" button in the
+    // booking-confirmed email — opened via GET /Bookings/{id}/contract/{token}, which isn't behind
+    // [Authorize] since the recipient clicking an email link isn't necessarily logged in. Never
+    // includes the license photos, only what's already visible elsewhere in the app.
+    public string BuildContractHtmlPage(RentalContractDto dto)
     {
         var confirmim = Confirmim(dto.BookingId);
-        var qrCid = $"qr{dto.BookingId}";
-        var qrAttachment = QrAttachment($"ERental {confirmim}", qrCid);
+        var qrSrc = QrDataUri($"ERental {confirmim}");
 
         var mbetetCash = dto.PaidOnline.HasValue ? dto.TotalPrice - dto.PaidOnline.Value : (decimal?)null;
 
@@ -550,7 +549,7 @@ public class EmailService : IEmailService
             </div>
 
             <div style='text-align:center; margin:24px 0;'>
-                <img src='cid:{qrCid}' width='130' height='130' alt='QR kodi i rezervimit' style='display:inline-block;' />
+                <img src='{qrSrc}' width='130' height='130' alt='QR kodi i rezervimit' style='display:inline-block;' />
                 <p style='font-size:11px; color:#717171; margin:8px 0 0 0;'>Skano për të verifikuar numrin e konfirmimit</p>
             </div>
 
@@ -558,8 +557,10 @@ public class EmailService : IEmailService
                 ERental është një marketplace që lidh biznese qeraje makinash me klientë. Ky dokument përmbledh marrëveshjen mes palëve të mësipërme — ERental nuk është palë në kontratë.
             </p>";
 
-        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), $"Kontrata e qerasë · {confirmim} — ERental", "", Wrap(body, $"Kontrata për {dto.CarMakeModel}"));
-        msg.AddAttachment(qrAttachment);
-        await SendAsync(msg);
+        return $@"<!doctype html>
+<html lang='sq'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Kontrata e qerasë · {confirmim}</title></head>
+<body style='margin:0; background:#f7f7f7;'>
+{Wrap(body, $"Kontrata për {dto.CarMakeModel}")}
+</body></html>";
     }
 }
