@@ -21,13 +21,15 @@ public class BookingsController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly IHubContext<NotificationHub> _hub;
     private readonly IPayPalService _payPal;
+    private readonly IPrivateFileService _privateFileService;
 
-    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal)
+    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService)
     {
         _context = context;
         _emailService = emailService;
         _hub = hub;
         _payPal = payPal;
+        _privateFileService = privateFileService;
     }
 
     private int GetUserId() =>
@@ -346,11 +348,12 @@ public class BookingsController : ControllerBase
     }
 
     // Lets the business look at the client's license instead of asking them to send it over
-    // WhatsApp again. Every non-owner view gets logged (LicenseViews) so there's an accountable
-    // trail of who looked at whose license and when.
-    [HttpGet("{id}/license")]
+    // WhatsApp again. The photo is streamed back as bytes (never a URL) and every non-owner view
+    // is logged in LicenseViews, so there's an accountable trail of who looked at whose license
+    // and when — this is the actual enforcement point, not just the frontend gating.
+    [HttpGet("{id}/license/{side}")]
     [Authorize]
-    public async Task<IActionResult> GetLicense(int id)
+    public async Task<IActionResult> GetLicensePhoto(int id, string side)
     {
         var userId = GetUserId();
 
@@ -368,8 +371,8 @@ public class BookingsController : ControllerBase
         if (eshteBiznesi && booking.Statusi != "confirmed" && booking.Statusi != "completed")
             return BadRequest("Patenta shihet vetem per rezervime te konfirmuara.");
 
-        if (string.IsNullOrWhiteSpace(booking.User.PatentaFotoPara) || string.IsNullOrWhiteSpace(booking.User.PatentaFotoMbrapa))
-            return NotFound("Klienti nuk e ka ngarkuar patenten akoma.");
+        var key = side == "para" ? booking.User.PatentaFotoPara : side == "mbrapa" ? booking.User.PatentaFotoMbrapa : null;
+        if (string.IsNullOrWhiteSpace(key)) return NotFound();
 
         if (!eshteKlienti)
         {
@@ -377,7 +380,8 @@ public class BookingsController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        return Ok(new { patentaFotoPara = booking.User.PatentaFotoPara, patentaFotoMbrapa = booking.User.PatentaFotoMbrapa });
+        var (stream, contentType) = await _privateFileService.DownloadAsync(key);
+        return File(stream, contentType ?? "image/jpeg");
     }
 
     [HttpPut("{id}/verify-id")]

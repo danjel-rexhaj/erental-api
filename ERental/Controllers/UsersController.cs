@@ -16,10 +16,12 @@ public class UsersController : ControllerBase
 {
     private readonly ERentalDbContext _context;
     private readonly IFileUploadService _fileUploadService;
-    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService)
+    private readonly IPrivateFileService _privateFileService;
+    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService, IPrivateFileService privateFileService)
     {
         _context = context;
         _fileUploadService = fileUploadService;
+        _privateFileService = privateFileService;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -45,15 +47,18 @@ public class UsersController : ControllerBase
             user.HasWhatsapp,
             user.FotoProfili,
             user.DataRegjistrimit,
-            user.PatentaFotoPara,
-            user.PatentaFotoMbrapa,
+            HasLicensePara = !string.IsNullOrWhiteSpace(user.PatentaFotoPara),
+            HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa),
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi
         });
     }
 
-    // The client-side booking flow gates the pay button on this — checked again server-side in
-    // PaymentsController.CreateOrder so a request crafted without going through the UI can't skip it.
+    // Uploads go to the private R2 bucket via IPrivateFileService, which stores an object key
+    // rather than a public URL — the photo is only ever readable back through GetMyLicensePhoto
+    // below (or the booking-scoped equivalent in BookingsController), never as a shareable link.
+    // The client-side booking flow gates the pay button on HasLicensePara/Mbrapa — checked again
+    // server-side in PaymentsController.CreateOrder so it can't be skipped by bypassing the UI.
     [HttpPost("me/license")]
     [Authorize]
     public async Task<IActionResult> UploadLicense(IFormFile? para, IFormFile? mbrapa)
@@ -68,17 +73,36 @@ public class UsersController : ControllerBase
         if (para != null && para.Length > 0)
         {
             using var stream = para.OpenReadStream();
-            user.PatentaFotoPara = await _fileUploadService.UploadAsync(stream, para.FileName, para.ContentType, $"users/{userId}/patenta");
+            user.PatentaFotoPara = await _privateFileService.UploadAsync(stream, para.FileName, para.ContentType, $"users/{userId}/patenta");
         }
         if (mbrapa != null && mbrapa.Length > 0)
         {
             using var stream = mbrapa.OpenReadStream();
-            user.PatentaFotoMbrapa = await _fileUploadService.UploadAsync(stream, mbrapa.FileName, mbrapa.ContentType, $"users/{userId}/patenta");
+            user.PatentaFotoMbrapa = await _privateFileService.UploadAsync(stream, mbrapa.FileName, mbrapa.ContentType, $"users/{userId}/patenta");
         }
 
         await _context.SaveChangesAsync();
 
-        return Ok(new { user.PatentaFotoPara, user.PatentaFotoMbrapa });
+        return Ok(new
+        {
+            HasLicensePara = !string.IsNullOrWhiteSpace(user.PatentaFotoPara),
+            HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa)
+        });
+    }
+
+    [HttpGet("me/license/{side}")]
+    [Authorize]
+    public async Task<IActionResult> GetMyLicensePhoto(string side)
+    {
+        var userId = GetUserId();
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        var key = side == "para" ? user.PatentaFotoPara : side == "mbrapa" ? user.PatentaFotoMbrapa : null;
+        if (string.IsNullOrWhiteSpace(key)) return NotFound();
+
+        var (stream, contentType) = await _privateFileService.DownloadAsync(key);
+        return File(stream, contentType ?? "image/jpeg");
     }
 
     [HttpPost("me/photo")]
