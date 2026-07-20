@@ -97,6 +97,9 @@ if (app.Environment.IsDevelopment())
 // this turns any such exception into a normal (still CORS-tagged) JSON error response.
 app.UseExceptionHandler(errApp => errApp.Run(async context =>
 {
+    var ex = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    if (ex != null) Console.WriteLine($"Unhandled exception on {context.Request.Path}: {ex}");
+
     context.Response.StatusCode = 500;
     context.Response.ContentType = "application/json";
     await context.Response.WriteAsync("{\"message\":\"Ndodhi nje gabim ne server.\"}");
