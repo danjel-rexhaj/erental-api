@@ -2,6 +2,8 @@ using ERental.Application.Interfaces;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ERental.Controllers;
 
@@ -20,6 +22,8 @@ public class PaymentsController : ControllerBase
         _context = context;
         _payPal = payPal;
     }
+
+    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
     // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used — the
@@ -80,5 +84,70 @@ public class PaymentsController : ControllerBase
         }
 
         return Ok(new { captureId = result.CaptureId, amountPaid = result.Amount });
+    }
+
+    // Transaction ledger for the caller's own business — reference number, amounts, and who/what it was for.
+    [HttpGet("my-company")]
+    [Authorize]
+    public async Task<IActionResult> GetMyCompanyPayments()
+    {
+        var userId = GetUserId();
+
+        var payments = await _context.Payments
+            .Include(p => p.Booking).ThenInclude(b => b.Car).ThenInclude(c => c.Company)
+            .Include(p => p.Booking).ThenInclude(b => b.User)
+            .Where(p => p.Booking.Car.Company.OwnerUserId == userId)
+            .OrderByDescending(p => p.DataPageses)
+            .Select(p => new
+            {
+                p.PaymentId,
+                p.DataPageses,
+                p.Statusi,
+                p.MetodaPageses,
+                p.ShumaTotale,
+                p.ShumaPaguarOnline,
+                p.Komisioni,
+                p.ShumaBiznesit,
+                p.PaypalCaptureId,
+                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit },
+                Car = new { p.Booking.Car.Marka, p.Booking.Car.Modeli },
+                Klienti = new { p.Booking.User.Emri, p.Booking.User.Mbiemri }
+            })
+            .ToListAsync();
+
+        return Ok(payments);
+    }
+
+    // Platform-wide transaction ledger, every business — admin only.
+    [HttpGet("admin")]
+    [Authorize]
+    public async Task<IActionResult> GetAllPayments()
+    {
+        var userId = GetUserId();
+        if (userId != 1) return Forbid();
+
+        var payments = await _context.Payments
+            .Include(p => p.Booking).ThenInclude(b => b.Car).ThenInclude(c => c.Company)
+            .Include(p => p.Booking).ThenInclude(b => b.User)
+            .OrderByDescending(p => p.DataPageses)
+            .Select(p => new
+            {
+                p.PaymentId,
+                p.DataPageses,
+                p.Statusi,
+                p.MetodaPageses,
+                p.ShumaTotale,
+                p.ShumaPaguarOnline,
+                p.Komisioni,
+                p.ShumaBiznesit,
+                p.PaypalCaptureId,
+                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit },
+                Car = new { p.Booking.Car.Marka, p.Booking.Car.Modeli },
+                Klienti = new { p.Booking.User.Emri, p.Booking.User.Mbiemri },
+                Biznesi = new { p.Booking.Car.Company.CompanyId, p.Booking.Car.Company.Emri }
+            })
+            .ToListAsync();
+
+        return Ok(payments);
     }
 }
