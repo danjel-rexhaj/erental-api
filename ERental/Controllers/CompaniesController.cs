@@ -12,7 +12,7 @@ namespace ERental.Controllers;
 
 public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
 public record UpdateLocationDto(double Latitude, double Longitude);
-public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti);
+public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
@@ -35,6 +35,16 @@ public class CompaniesController : ControllerBase
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    // Iban is [JsonIgnore] on the entity so it never leaks through the public GetCars/GetCompanies
+    // endpoints; this is the one place it's explicitly surfaced, for the company's own owner/admin.
+    private static object ProjectCompanyOwner(Company c) => new
+    {
+        c.CompanyId, c.Emri, c.Email, c.Telefoni, c.Adresa, c.Qyteti, c.Nipt,
+        c.EshteVerifikuar, c.DataVerifikimit, c.CommissionRate, c.DataRegjistrimit,
+        c.BillingModel, c.Statusi, c.OwnerUserId, c.LogoUrl, c.Latitude, c.Longitude,
+        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban
+    };
+
     private async Task NotifyAsync(int userId, string title, string message, string? target = null)
     {
         var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, Target = target };
@@ -56,7 +66,7 @@ public class CompaniesController : ControllerBase
     [Authorize]
     public async Task<IActionResult> RegisterCompany(
     [FromForm] string emri, [FromForm] string telefoni, [FromForm] string adresa,
-    [FromForm] string qyteti, [FromForm] string nipt, [FromForm] double? latitude,
+    [FromForm] string qyteti, [FromForm] string nipt, [FromForm] string? iban, [FromForm] double? latitude,
     [FromForm] double? longitude, IFormFile? certifikataFile)
     {
         var userId = GetUserId();
@@ -75,6 +85,7 @@ public class CompaniesController : ControllerBase
             Adresa = adresa,
             Qyteti = qyteti,
             Nipt = nipt,
+            Iban = string.IsNullOrWhiteSpace(iban) ? null : iban.Trim().Replace(" ", "").ToUpperInvariant(),
             Latitude = latitude,
             Longitude = longitude,
             EshteVerifikuar = false,
@@ -150,7 +161,7 @@ public class CompaniesController : ControllerBase
         var userId = GetUserId();
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
         if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
-        return Ok(company);
+        return Ok(ProjectCompanyOwner(company));
     }
 
     [HttpPost("my-company/logo")]
@@ -188,9 +199,11 @@ public class CompaniesController : ControllerBase
         company.Telefoni = dto.Telefoni;
         company.Adresa = dto.Adresa;
         company.Qyteti = dto.Qyteti;
+        if (dto.Iban != null)
+            company.Iban = string.IsNullOrWhiteSpace(dto.Iban) ? null : dto.Iban.Trim().Replace(" ", "").ToUpperInvariant();
         await _context.SaveChangesAsync();
 
-        return Ok(company);
+        return Ok(ProjectCompanyOwner(company));
     }
 
     // Soft delete: nothing is actually removed (existing bookings/invoices/contracts stay intact
@@ -260,7 +273,7 @@ public class CompaniesController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Statusi)) company.Statusi = dto.Statusi;
         await _context.SaveChangesAsync();
 
-        return Ok(company);
+        return Ok(ProjectCompanyOwner(company));
     }
 
     [HttpPut("{id}/verify")]

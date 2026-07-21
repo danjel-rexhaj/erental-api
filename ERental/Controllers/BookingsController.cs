@@ -602,7 +602,7 @@ public class BookingsController : ControllerBase
                 b.IdVerifikuar,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa, b.Car.CmimiDites },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
-                Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId, p.CardLast4 }).FirstOrDefault()
+                Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId, p.CardLast4, p.Komisioni, p.ShumaBiznesit }).FirstOrDefault()
             })
             .ToListAsync();
 

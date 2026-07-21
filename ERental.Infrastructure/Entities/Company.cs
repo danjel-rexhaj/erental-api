@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace ERental.Infrastructure.Entities;
 
@@ -46,6 +47,12 @@ public partial class Company
     public int ReviewCount { get; set; }
 
     public int CarCount { get; set; }
+
+    // Bank details for commission payouts — never serialized by default (public endpoints like
+    // GetCars/GetCompanies return this entity as-is); only exposed via explicit owner/admin
+    // projections in CompaniesController.
+    [JsonIgnore]
+    public string? Iban { get; set; }
 
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 

@@ -292,6 +292,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Telefoni)
                 .HasMaxLength(20)
                 .HasColumnName("telefoni");
+            entity.Property(e => e.Iban)
+                .HasMaxLength(34)
+                .HasColumnName("iban");
             entity.Ignore(e => e.AvgRating);
             entity.Ignore(e => e.ReviewCount);
             entity.Ignore(e => e.CarCount);
