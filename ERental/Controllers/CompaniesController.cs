@@ -170,6 +170,39 @@ public class CompaniesController : ControllerBase
         return Ok(company);
     }
 
+    // Soft delete: nothing is actually removed (existing bookings/invoices/contracts stay intact
+    // for accounting purposes), the company and its cars just stop showing up anywhere new
+    // bookings could be made, and the business can turn it back on themselves later.
+    [HttpPost("my-company/deactivate")]
+    [Authorize]
+    public async Task<IActionResult> DeactivateMyCompany()
+    {
+        var userId = GetUserId();
+        var company = await _context.Companies.Include(c => c.Cars).FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        company.Statusi = "inactive";
+        foreach (var car in company.Cars) car.Statusi = "inactive";
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Llogaria u caktivizua." });
+    }
+
+    [HttpPost("my-company/reactivate")]
+    [Authorize]
+    public async Task<IActionResult> ReactivateMyCompany()
+    {
+        var userId = GetUserId();
+        var company = await _context.Companies.Include(c => c.Cars).FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        company.Statusi = "active";
+        foreach (var car in company.Cars) car.Statusi = "active";
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Llogaria u riaktivizua." });
+    }
+
     [HttpPut("my-company/location")]
     [Authorize]
     public async Task<IActionResult> UpdateLocation(UpdateLocationDto dto)

@@ -31,6 +31,8 @@ public partial class Booking
 
     public Guid? ContractToken { get; set; }
 
+    public DateTime? DataKonfirmimit { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();

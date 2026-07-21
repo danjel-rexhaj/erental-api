@@ -231,6 +231,7 @@ public class BookingsController : ControllerBase
             // Ndrysho statusin
             booking.Statusi = "confirmed";
             booking.ContractToken ??= Guid.NewGuid();
+            booking.DataKonfirmimit = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
 
 
             // Kontrollo nese ekziston bllokimi i makines
@@ -489,19 +490,23 @@ public class BookingsController : ControllerBase
         if (booking.Statusi == "cancelled") return BadRequest("Ky rezervim eshte anuluar tashme.");
         if (booking.Statusi == "completed") return BadRequest("S'mund te anulosh nje rezervim te perfunduar.");
 
-        if (eshteKlienti && !eshteBiznesi && !eshteAdmin)
-        {
-            var oreQeKaluan = (DateTime.UtcNow - booking.DataKrijimit!.Value).TotalHours;
-            if (oreQeKaluan > 12)
-                return BadRequest("Kane kaluar 12 ore nga rezervimi — anulimi nuk lejohet me nga platforma. Kontakto biznesin direkt.");
-        }
+        if (string.IsNullOrWhiteSpace(dto?.Reason))
+            return BadRequest("Duhet te jepesh nje arsye per anulimin.");
 
-        if ((eshteBiznesi || eshteAdmin) && !eshteKlienti && string.IsNullOrWhiteSpace(dto?.Reason))
-            return BadRequest("Duhet te jepesh nje arsye per refuzimin.");
+        // Refund window counts from when the business confirmed, not when the client first asked —
+        // a booking can sit pending for days waiting on the business, and the client shouldn't lose
+        // their cancellation window before they even know if it was accepted. A still-pending
+        // booking (never confirmed) and any business/admin-initiated cancellation always refund.
+        bool refundEligible = true;
+        if (eshteKlienti && !eshteBiznesi && !eshteAdmin && booking.Statusi == "confirmed" && booking.DataKonfirmimit.HasValue)
+        {
+            var oreQeKaluan = (DateTime.UtcNow - booking.DataKonfirmimit.Value).TotalHours;
+            refundEligible = oreQeKaluan <= 12;
+        }
 
         booking.Statusi = "cancelled";
         booking.DataAnulimit = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
-        if (eshteBiznesi) booking.ArsyejaRefuzimit = dto!.Reason;
+        booking.ArsyejaRefuzimit = dto!.Reason;
 
         var block = await _context.CarAvailabilityBlocks
             .FirstOrDefaultAsync(b => b.CarId == booking.CarId && b.Shenim == $"Booking #{booking.BookingId}");
@@ -510,7 +515,9 @@ public class BookingsController : ControllerBase
         var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == booking.BookingId);
         if (payment != null)
         {
-            if (!string.IsNullOrEmpty(payment.PaypalCaptureId) && payment.ShumaPaguarOnline is > 0)
+            bool hasOnlinePayment = !string.IsNullOrEmpty(payment.PaypalCaptureId) && payment.ShumaPaguarOnline is > 0;
+
+            if (hasOnlinePayment && refundEligible)
             {
                 bool refunded;
                 try { refunded = await _payPal.RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
@@ -519,6 +526,10 @@ public class BookingsController : ControllerBase
                 // Only mark it refunded if PayPal actually confirmed it — otherwise this silently
                 // told the business/client the money was back when it never left our side to refund.
                 payment.Statusi = refunded ? "refunded" : "refund_failed";
+            }
+            else if (hasOnlinePayment && !refundEligible)
+            {
+                payment.Statusi = "not_refunded";
             }
             else
             {
@@ -544,7 +555,7 @@ public class BookingsController : ControllerBase
                     await _emailService.SendBookingCancelledAsync(
                         booking.Car.Company.Email, booking.Car.Company.Emri,
                         $"{booking.Car.Marka} {booking.Car.Modeli}",
-                        booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl);
+                        booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CancelBooking email error: {ex.Message}"); }
@@ -553,9 +564,10 @@ public class BookingsController : ControllerBase
         {
             var targetUserId = eshteBiznesi ? booking.UserId : booking.Car.Company.OwnerUserId;
             var notifTarget = eshteBiznesi ? "client_booking" : "business_booking";
-            var notifMsg = eshteBiznesi && !string.IsNullOrWhiteSpace(booking.ArsyejaRefuzimit)
-                ? $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} u refuzua. Arsyeja: {booking.ArsyejaRefuzimit}"
-                : $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} u anulua";
+            var veprim = eshteBiznesi ? "u refuzua" : "u anulua";
+            var notifMsg = !string.IsNullOrWhiteSpace(booking.ArsyejaRefuzimit)
+                ? $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} {veprim}. Arsyeja: {booking.ArsyejaRefuzimit}"
+                : $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} {veprim}";
             if (targetUserId != null)
                 await NotifyAsync(targetUserId.Value, "Rezervimi u anulua", notifMsg, booking.BookingId, notifTarget);
         }

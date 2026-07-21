@@ -94,6 +94,9 @@ public partial class ERentalDbContext : DbContext
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("data_anulimit");
             entity.Property(e => e.ContractToken).HasColumnName("contract_token");
+            entity.Property(e => e.DataKonfirmimit)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_konfirmimit");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.Car).WithMany(p => p.Bookings)
