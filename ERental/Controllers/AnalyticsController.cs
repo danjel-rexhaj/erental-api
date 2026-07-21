@@ -116,13 +116,19 @@ public class AnalyticsController : ControllerBase
             verifications = BuildSeries(verificationDates, daily)
         };
 
+        var completedPayments = await _context.Payments
+            .Where(p => p.Statusi == "completed")
+            .ToListAsync();
+
         var totals = new
         {
             TotalUsers = await _context.Users.CountAsync(),
             TotalCompanies = await _context.Companies.CountAsync(),
             TotalCars = await _context.Cars.CountAsync(),
             TotalBookings = await _context.Bookings.CountAsync(),
-            PendingVerifications = await _context.Companies.CountAsync(c => c.EshteVerifikuar == false)
+            PendingVerifications = await _context.Companies.CountAsync(c => c.EshteVerifikuar == false),
+            TotalPlatformRevenue = completedPayments.Sum(p => p.ShumaTotale),
+            TotalPlatformProfit = completedPayments.Sum(p => p.Komisioni)
         };
 
         var topCompanies = await _context.Bookings
@@ -132,7 +138,17 @@ public class AnalyticsController : ControllerBase
             .Take(5)
             .ToListAsync();
 
-        return Ok(new { series, totals, topCompanies });
+        var companyBreakdown = await _context.Payments
+            .Where(p => p.Statusi == "completed")
+            .Join(_context.Bookings, p => p.BookingId, b => b.BookingId, (p, b) => new { p.ShumaTotale, p.Komisioni, b.CarId })
+            .Join(_context.Cars, x => x.CarId, c => c.CarId, (x, c) => new { x.ShumaTotale, x.Komisioni, c.CompanyId })
+            .Join(_context.Companies, x => x.CompanyId, co => co.CompanyId, (x, co) => new { x.ShumaTotale, x.Komisioni, co.Emri })
+            .GroupBy(x => x.Emri)
+            .Select(g => new { Emri = g.Key, TeArdhura = g.Sum(x => x.ShumaTotale), Fitimi = g.Sum(x => x.Komisioni) })
+            .OrderByDescending(x => x.Fitimi)
+            .ToListAsync();
+
+        return Ok(new { series, totals, topCompanies, companyBreakdown });
     }
 
     [HttpGet("admin/logins")]
