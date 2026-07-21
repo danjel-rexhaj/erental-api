@@ -1,8 +1,10 @@
 ﻿using ERental.Application.Interfaces;
+using ERental.Hubs;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -20,16 +22,35 @@ public class CompaniesController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IFileUploadService _fileUploadService;
     private readonly IEmailService _emailService;
+    private readonly IHubContext<NotificationHub> _hub;
 
-    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService, IEmailService emailService)
+    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService, IEmailService emailService, IHubContext<NotificationHub> hub)
     {
         _context = context;
         _fileUploadService = fileUploadService;
         _emailService = emailService;
+        _hub = hub;
     }
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private async Task NotifyAsync(int userId, string title, string message, string? target = null)
+    {
+        var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, Target = target };
+        _context.Notifications.Add(notif);
+        await _context.SaveChangesAsync();
+
+        await _hub.Clients.Group(userId.ToString()).SendAsync("notification", new
+        {
+            id = notif.Id,
+            title = notif.Title,
+            message = notif.Message,
+            createdAt = notif.DataKrijimit,
+            bookingId = notif.BookingId,
+            target = notif.Target
+        });
+    }
 
     [HttpPost("register")]
     [Authorize]
@@ -103,6 +124,8 @@ public class CompaniesController : ControllerBase
 
             try
             {
+                await NotifyAsync(1, "Kerkese verifikimi biznesi", $"{company.Emri} dergoi certifikaten e NIPT-it dhe pret verifikim.", "admin_company_verification");
+
                 var admin = await _context.Users.FindAsync(1);
                 if (admin?.Email != null)
                     await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);

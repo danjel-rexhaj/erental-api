@@ -1,7 +1,10 @@
+using ERental.Application.Interfaces;
+using ERental.Hubs;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -12,9 +15,34 @@ namespace ERental.Controllers;
 public class WhatsappVerificationsController : ControllerBase
 {
     private readonly ERentalDbContext _context;
-    public WhatsappVerificationsController(ERentalDbContext context) => _context = context;
+    private readonly IEmailService _emailService;
+    private readonly IHubContext<NotificationHub> _hub;
+
+    public WhatsappVerificationsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub)
+    {
+        _context = context;
+        _emailService = emailService;
+        _hub = hub;
+    }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private async Task NotifyAsync(int userId, string title, string message, string? target = null)
+    {
+        var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, Target = target };
+        _context.Notifications.Add(notif);
+        await _context.SaveChangesAsync();
+
+        await _hub.Clients.Group(userId.ToString()).SendAsync("notification", new
+        {
+            id = notif.Id,
+            title = notif.Title,
+            message = notif.Message,
+            createdAt = notif.DataKrijimit,
+            bookingId = notif.BookingId,
+            target = notif.Target
+        });
+    }
 
     [HttpPost]
     [Authorize]
@@ -30,6 +58,20 @@ public class WhatsappVerificationsController : ControllerBase
         _context.WhatsappVerifications.Add(verification);
 
         await _context.SaveChangesAsync();
+
+        try
+        {
+            var requester = await _context.Users.FindAsync(userId);
+            if (requester != null)
+            {
+                await NotifyAsync(1, "Kerkese verifikimi WhatsApp", $"{requester.Emri} {requester.Mbiemri} kerkoi verifikim te numrit WhatsApp.", "admin_whatsapp_verification");
+
+                var admin = await _context.Users.FindAsync(1);
+                if (admin?.Email != null)
+                    await _emailService.SendAdminWhatsappVerificationRequestAsync(admin.Email, $"{requester.Emri} {requester.Mbiemri}", requester.Telefoni);
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"WhatsApp verification admin notify error: {ex.Message}"); }
 
         return Ok(new { code });
     }
