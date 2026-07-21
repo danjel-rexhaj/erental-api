@@ -423,6 +423,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.ShumaPaguarOnline)
                 .HasPrecision(10, 2)
                 .HasColumnName("shuma_paguar_online");
+            entity.Property(e => e.CardLast4)
+                .HasMaxLength(4)
+                .HasColumnName("card_last4");
 
             entity.HasOne(d => d.Booking).WithMany(p => p.Payments)
                 .HasForeignKey(d => d.BookingId)

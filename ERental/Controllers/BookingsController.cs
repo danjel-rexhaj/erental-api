@@ -102,6 +102,7 @@ public class BookingsController : ControllerBase
         // The capture already happened via POST /api/Payments/paypal/capture — re-verify it here
         // against PayPal directly rather than trusting the client's claimed amount/method.
         decimal? shumaPaguarOnline;
+        string? cardLast4;
         {
             if (string.IsNullOrWhiteSpace(dto.PaypalCaptureId))
                 return BadRequest("Mungon konfirmimi i pageses.");
@@ -115,6 +116,7 @@ public class BookingsController : ControllerBase
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 
             shumaPaguarOnline = capture.Amount;
+            cardLast4 = capture.CardLast4;
         }
 
         if (konfliktet.Count > 0)
@@ -150,6 +152,7 @@ public class BookingsController : ControllerBase
                 ShumaPaguarOnline = shumaPaguarOnline,
                 MetodaPageses = paymentMethod,
                 PaypalCaptureId = dto.PaypalCaptureId,
+                CardLast4 = cardLast4,
                 Statusi = "completed"
             });
             await _context.SaveChangesAsync();
@@ -509,10 +512,18 @@ public class BookingsController : ControllerBase
         {
             if (!string.IsNullOrEmpty(payment.PaypalCaptureId) && payment.ShumaPaguarOnline is > 0)
             {
-                try { await _payPal.RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
-                catch { }
+                bool refunded;
+                try { refunded = await _payPal.RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
+                catch (Exception ex) { Console.WriteLine($"CancelBooking refund error: {ex.Message}"); refunded = false; }
+
+                // Only mark it refunded if PayPal actually confirmed it — otherwise this silently
+                // told the business/client the money was back when it never left our side to refund.
+                payment.Statusi = refunded ? "refunded" : "refund_failed";
             }
-            payment.Statusi = "refunded";
+            else
+            {
+                payment.Statusi = "refunded";
+            }
         }
 
         await _context.SaveChangesAsync();
@@ -579,7 +590,7 @@ public class BookingsController : ControllerBase
                 b.IdVerifikuar,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa, b.Car.CmimiDites },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
-                Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId }).FirstOrDefault()
+                Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId, p.CardLast4 }).FirstOrDefault()
             })
             .ToListAsync();
 

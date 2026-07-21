@@ -1,6 +1,6 @@
 namespace ERental.Application.Interfaces;
 
-public record PayPalCaptureResult(bool Success, string? CaptureId, decimal? Amount, string? Currency, string? Status, string? Error);
+public record PayPalCaptureResult(bool Success, string? CaptureId, decimal? Amount, string? Currency, string? Status, string? Error, string? CardLast4 = null);
 public record PayPalOrderResult(bool Success, string? OrderId, string? ApproveUrl, string? Error);
 
 public interface IPayPalService

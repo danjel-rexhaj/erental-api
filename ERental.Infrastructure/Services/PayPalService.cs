@@ -36,14 +36,25 @@ public class PayPalService : IPayPalService
         return json.GetProperty("access_token").GetString();
     }
 
-    private static PayPalCaptureResult ParseCapture(JsonElement captureJson)
+    private static PayPalCaptureResult ParseCapture(JsonElement captureJson, string? cardLast4 = null)
     {
         var status = captureJson.GetProperty("status").GetString();
         var id = captureJson.GetProperty("id").GetString();
         var amountEl = captureJson.GetProperty("amount");
         var value = decimal.Parse(amountEl.GetProperty("value").GetString()!, System.Globalization.CultureInfo.InvariantCulture);
         var currency = amountEl.GetProperty("currency_code").GetString();
-        return new PayPalCaptureResult(status == "COMPLETED", id, value, currency, status, null);
+        return new PayPalCaptureResult(status == "COMPLETED", id, value, currency, status, null, cardLast4 ?? TryGetCardLast4(captureJson));
+    }
+
+    // payment_source sits alongside "captures" in some response shapes and inside the capture
+    // resource itself in others (GET /v2/payments/captures/{id}) — check both rather than assuming.
+    private static string? TryGetCardLast4(JsonElement root)
+    {
+        if (root.TryGetProperty("payment_source", out var src) &&
+            src.TryGetProperty("card", out var card) &&
+            card.TryGetProperty("last_digits", out var last4))
+            return last4.GetString();
+        return null;
     }
 
     public async Task<PayPalOrderResult> CreateOrderAsync(decimal amount, string currency = "EUR", string? returnUrl = null, string? cancelUrl = null)
@@ -137,7 +148,7 @@ public class PayPalService : IPayPalService
             if (res.IsSuccessStatusCode)
             {
                 var capture = body.GetProperty("purchase_units")[0].GetProperty("payments").GetProperty("captures")[0];
-                return ParseCapture(capture);
+                return ParseCapture(capture, TryGetCardLast4(body));
             }
 
             var issue = body.TryGetProperty("details", out var details) && details.GetArrayLength() > 0
@@ -177,7 +188,7 @@ public class PayPalService : IPayPalService
 
         var body = await res.Content.ReadFromJsonAsync<JsonElement>();
         var captures = body.GetProperty("purchase_units")[0].GetProperty("payments").GetProperty("captures");
-        return captures.GetArrayLength() > 0 ? ParseCapture(captures[0]) : null;
+        return captures.GetArrayLength() > 0 ? ParseCapture(captures[0], TryGetCardLast4(body)) : null;
     }
 
     public async Task<PayPalCaptureResult> GetCaptureAsync(string captureId)

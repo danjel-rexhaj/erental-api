@@ -87,7 +87,7 @@ public class PaymentsController : ControllerBase
             return BadRequest("Shuma e paguar nuk perputhet me cmimin e pritshem. Pagesa u rimbursua automatikisht.");
         }
 
-        return Ok(new { captureId = result.CaptureId, amountPaid = result.Amount });
+        return Ok(new { captureId = result.CaptureId, amountPaid = result.Amount, cardLast4 = result.CardLast4 });
     }
 
     // Transaction ledger for the caller's own business — reference number, amounts, and who/what it was for.

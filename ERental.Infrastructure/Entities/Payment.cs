@@ -27,5 +27,7 @@ public partial class Payment
 
     public decimal? ShumaPaguarOnline { get; set; }
 
+    public string? CardLast4 { get; set; }
+
     public virtual Booking Booking { get; set; } = null!;
 }
