@@ -14,6 +14,7 @@ public partial class PendingRegistration
     public string PasswordHash { get; set; } = null!;
     public string? Telefoni { get; set; }
     public bool? HasWhatsapp { get; set; }
+    public string? Kombesia { get; set; }
     public string Code { get; set; } = null!;
     public DateTime? DataKrijimit { get; set; }
     public DateTime DataSkadimit { get; set; }

@@ -507,6 +507,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.PasswordHash).HasMaxLength(255).HasColumnName("password_hash");
             entity.Property(e => e.Telefoni).HasMaxLength(20).HasColumnName("telefoni");
             entity.Property(e => e.HasWhatsapp).HasDefaultValue(false).HasColumnName("has_whatsapp");
+            entity.Property(e => e.Kombesia).HasMaxLength(50).HasColumnName("kombesia");
             entity.Property(e => e.Code).HasMaxLength(10).HasColumnName("code");
             entity.Property(e => e.DataKrijimit)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -576,6 +577,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Telefoni)
                 .HasMaxLength(20)
                 .HasColumnName("telefoni");
+            entity.Property(e => e.Kombesia)
+                .HasMaxLength(50)
+                .HasColumnName("kombesia");
         });
 
         modelBuilder.Entity<WhatsappVerification>(entity =>

@@ -31,6 +31,8 @@ public partial class User
 
     public string? PatentaFotoMbrapa { get; set; }
 
+    public string? Kombesia { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<Company> Companies { get; set; } = new List<Company>();

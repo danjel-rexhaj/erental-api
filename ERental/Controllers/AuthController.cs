@@ -11,7 +11,7 @@ using System.Text;
 
 namespace ERental.Controllers;
 
-public record RegisterDto(string Emri, string Mbiemri, string Email, string Password, string? Telefoni, bool HasWhatsapp);
+public record RegisterDto(string Emri, string Mbiemri, string Email, string Password, string? Telefoni, bool HasWhatsapp, string? Kombesia);
 public record LoginDto(string Email, string Password);
 public record AuthResponseDto(string Token, string Email, string Emri, string Mbiemri, string? Telefoni, bool HasWhatsapp, bool EmailVerified, bool HasCompany);
 public record VerifyEmailDto(string Email, string Code);
@@ -53,6 +53,7 @@ public class AuthController : ControllerBase
             existing.PasswordHash = passwordHash;
             existing.Telefoni = dto.Telefoni;
             existing.HasWhatsapp = dto.HasWhatsapp;
+            existing.Kombesia = dto.Kombesia;
             existing.Code = code;
             existing.DataSkadimit = expiry;
         }
@@ -66,6 +67,7 @@ public class AuthController : ControllerBase
                 PasswordHash = passwordHash,
                 Telefoni = dto.Telefoni,
                 HasWhatsapp = dto.HasWhatsapp,
+                Kombesia = dto.Kombesia,
                 Code = code,
                 DataSkadimit = expiry
             });
@@ -136,6 +138,7 @@ public class AuthController : ControllerBase
             PasswordHash = pending.PasswordHash,
             Telefoni = pending.Telefoni,
             HasWhatsapp = pending.HasWhatsapp,
+            Kombesia = pending.Kombesia,
             EmailVerified = true
         };
 
