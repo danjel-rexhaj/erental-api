@@ -15,6 +15,7 @@ public record CreateCarDto(
 
 public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
 public record AdminUpdateCarDto(decimal? CmimiDites, string? Statusi);
+public record UpdateCarStatusDto(string Statusi);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -178,6 +179,44 @@ public class CarsController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(car);
+    }
+
+    [HttpPut("{id}/status")]
+    [Authorize]
+    public async Task<IActionResult> UpdateCarStatus(int id, UpdateCarStatusDto dto)
+    {
+        var userId = GetUserId();
+        var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+        if (car.Company.OwnerUserId != userId && userId != 1) return Forbid();
+        if (dto.Statusi != "active" && dto.Statusi != "inactive") return BadRequest("Statusi i pavlefshem.");
+
+        car.Statusi = dto.Statusi;
+        await _context.SaveChangesAsync();
+        return Ok(new { car.CarId, car.Statusi });
+    }
+
+    // Cars with any booking history (even cancelled) can't be hard-deleted -- deleting would either
+    // violate the bookings FK or orphan historical bookings/invoices. Deactivate those instead.
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteCar(int id)
+    {
+        var userId = GetUserId();
+        var car = await _context.Cars.Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == id);
+        if (car == null) return NotFound();
+        if (car.Company.OwnerUserId != userId && userId != 1) return Forbid();
+
+        if (await _context.Bookings.AnyAsync(b => b.CarId == id))
+            return BadRequest("Kjo makine ka rezervime ne histori dhe nuk mund te fshihet perfundimisht -- caktivizoje ne vend te kesaj.");
+
+        _context.CarPhotos.RemoveRange(_context.CarPhotos.Where(p => p.CarId == id));
+        _context.CarAvailabilityBlocks.RemoveRange(_context.CarAvailabilityBlocks.Where(b => b.CarId == id));
+        _context.CarViews.RemoveRange(_context.CarViews.Where(v => v.CarId == id));
+        _context.Cars.Remove(car);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Makina u fshi." });
     }
 
     [HttpPut("{id}/admin")]
