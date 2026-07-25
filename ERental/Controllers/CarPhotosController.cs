@@ -86,6 +86,26 @@ public class CarPhotosController : ControllerBase
         return Ok(photos);
     }
 
+    [HttpPut("{id}/main")]
+    [Authorize]
+    public async Task<IActionResult> SetMainPhoto(int id)
+    {
+        var userId = GetUserId();
+
+        var photo = await _context.CarPhotos.Include(p => p.Car).ThenInclude(c => c.Company)
+            .FirstOrDefaultAsync(p => p.PhotoId == id);
+        if (photo == null) return NotFound();
+
+        if (photo.Car.Company.OwnerUserId != userId)
+            return Forbid();
+
+        var siblings = await _context.CarPhotos.Where(p => p.CarId == photo.CarId).ToListAsync();
+        foreach (var f in siblings) f.EshteKryesore = f.PhotoId == id;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Foto kryesore u perditesua." });
+    }
+
 
 
     [HttpPost("upload")]
