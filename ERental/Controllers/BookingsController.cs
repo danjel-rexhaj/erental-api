@@ -628,6 +628,7 @@ public class BookingsController : ControllerBase
                 b.CmimiTotal,
                 b.Statusi,
                 b.DataKrijimit,
+                b.ArsyejaRefuzimit,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa },
                 Biznesi = new { b.Car.Company.CompanyId, b.Car.Company.Emri },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Email }
