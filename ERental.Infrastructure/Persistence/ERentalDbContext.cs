@@ -18,6 +18,8 @@ public partial class ERentalDbContext : DbContext
 
     public virtual DbSet<Booking> Bookings { get; set; }
 
+    public virtual DbSet<AmenitySuggestion> AmenitySuggestions { get; set; }
+
     public virtual DbSet<Car> Cars { get; set; }
 
     public virtual DbSet<CarAvailabilityBlock> CarAvailabilityBlocks { get; set; }
@@ -299,6 +301,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.LogoUrl).HasColumnName("logo_url");
             entity.Property(e => e.Latitude).HasColumnName("latitude");
             entity.Property(e => e.Longitude).HasColumnName("longitude");
+            entity.Property(e => e.OfronDergimMakine)
+                .HasDefaultValue(false)
+                .HasColumnName("ofron_dergim_makine");
             entity.Property(e => e.AllowCashPayment)
                 .HasDefaultValue(true)
                 .HasColumnName("allow_cash_payment");
@@ -322,6 +327,31 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.OwnerUser).WithMany(p => p.Companies)
                 .HasForeignKey(d => d.OwnerUserId)
                 .HasConstraintName("companies_owner_user_id_fkey");
+        });
+
+        modelBuilder.Entity<AmenitySuggestion>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("amenity_suggestions_pkey");
+
+            entity.ToTable("amenity_suggestions");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CompanyId).HasColumnName("company_id");
+            entity.Property(e => e.Suggestion)
+                .HasMaxLength(200)
+                .HasColumnName("suggestion");
+            entity.Property(e => e.Statusi)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'pending'::character varying")
+                .HasColumnName("statusi");
+            entity.Property(e => e.DataKrijimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_krijimit");
+
+            entity.HasOne(d => d.Company).WithMany(p => p.AmenitySuggestions)
+                .HasForeignKey(d => d.CompanyId)
+                .HasConstraintName("amenity_suggestions_company_id_fkey");
         });
 
         modelBuilder.Entity<CompanySubscription>(entity =>

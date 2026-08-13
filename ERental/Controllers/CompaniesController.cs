@@ -12,7 +12,7 @@ namespace ERental.Controllers;
 
 public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
 public record UpdateLocationDto(double Latitude, double Longitude);
-public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban);
+public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
@@ -42,7 +42,7 @@ public class CompaniesController : ControllerBase
         c.CompanyId, c.Emri, c.Email, c.Telefoni, c.Adresa, c.Qyteti, c.Nipt,
         c.EshteVerifikuar, c.DataVerifikimit, c.CommissionRate, c.DataRegjistrimit,
         c.BillingModel, c.Statusi, c.OwnerUserId, c.LogoUrl, c.Latitude, c.Longitude,
-        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban
+        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine
     };
 
     private async Task NotifyAsync(int userId, string title, string message, string? target = null)
@@ -67,7 +67,7 @@ public class CompaniesController : ControllerBase
     public async Task<IActionResult> RegisterCompany(
     [FromForm] string emri, [FromForm] string telefoni, [FromForm] string adresa,
     [FromForm] string qyteti, [FromForm] string nipt, [FromForm] string? iban, [FromForm] double? latitude,
-    [FromForm] double? longitude, IFormFile? certifikataFile)
+    [FromForm] double? longitude, [FromForm] bool? ofronDergimMakine, IFormFile? certifikataFile)
     {
         var userId = GetUserId();
 
@@ -88,6 +88,7 @@ public class CompaniesController : ControllerBase
             Iban = string.IsNullOrWhiteSpace(iban) ? null : iban.Trim().Replace(" ", "").ToUpperInvariant(),
             Latitude = latitude,
             Longitude = longitude,
+            OfronDergimMakine = ofronDergimMakine ?? false,
             EshteVerifikuar = false,
             BillingModel = "commission",
             Statusi = "active",
@@ -201,6 +202,8 @@ public class CompaniesController : ControllerBase
         company.Qyteti = dto.Qyteti;
         if (dto.Iban != null)
             company.Iban = string.IsNullOrWhiteSpace(dto.Iban) ? null : dto.Iban.Trim().Replace(" ", "").ToUpperInvariant();
+        if (dto.OfronDergimMakine.HasValue)
+            company.OfronDergimMakine = dto.OfronDergimMakine.Value;
         await _context.SaveChangesAsync();
 
         return Ok(ProjectCompanyOwner(company));

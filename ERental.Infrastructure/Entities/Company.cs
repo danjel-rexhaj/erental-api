@@ -42,6 +42,8 @@ public partial class Company
 
     public bool? AllowCashPayment { get; set; }
 
+    public bool OfronDergimMakine { get; set; }
+
     public double? AvgRating { get; set; }
 
     public int ReviewCount { get; set; }
@@ -53,6 +55,8 @@ public partial class Company
     // projections in CompaniesController.
     [JsonIgnore]
     public string? Iban { get; set; }
+
+    public virtual ICollection<AmenitySuggestion> AmenitySuggestions { get; set; } = new List<AmenitySuggestion>();
 
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
 
