@@ -1,7 +1,9 @@
-﻿using ERental.Infrastructure.Entities;
+﻿using ERental.Hubs;
+using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -25,10 +27,12 @@ public record UpdateCarStatusDto(string Statusi);
 public class CarsController : ControllerBase
 {
     private readonly ERentalDbContext _context;
+    private readonly IHubContext<NotificationHub> _hub;
 
-    public CarsController(ERentalDbContext context)
+    public CarsController(ERentalDbContext context, IHubContext<NotificationHub> hub)
     {
         _context = context;
+        _hub = hub;
     }
 
     private int GetUserId() =>
@@ -372,6 +376,8 @@ public class CarsController : ControllerBase
         _context.CarAvailabilityBlocks.Add(block);
         await _context.SaveChangesAsync();
 
+        await _hub.Clients.Group($"car-{id}").SendAsync("availabilityChanged", new { carId = id });
+
         return Ok(block);
     }
 
@@ -392,6 +398,8 @@ public class CarsController : ControllerBase
 
         _context.CarAvailabilityBlocks.Remove(block);
         await _context.SaveChangesAsync();
+
+        await _hub.Clients.Group($"car-{id}").SendAsync("availabilityChanged", new { carId = id });
 
         return Ok();
     }

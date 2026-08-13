@@ -224,6 +224,17 @@ public class BookingsController : ControllerBase
         if (!booking.IdVerifikuar)
             return BadRequest("Duhet te verifikosh patenten e klientit para se te miratosh rezervimin.");
 
+        // Another pending booking for the same car/dates may have been confirmed first (both can
+        // reach here with zero blocks existing yet, since a block is only created on confirmation) —
+        // catch that here rather than silently double-booking the car.
+        var konfliktKonfirmimi = await _context.CarAvailabilityBlocks
+            .AnyAsync(b => b.CarId == booking.CarId
+                && b.Shenim != $"Booking #{booking.BookingId}"
+                && b.DataFillimit < booking.DataPerfundimit
+                && b.DataPerfundimit > booking.DataFillimit);
+        if (konfliktKonfirmimi)
+            return BadRequest("Makina eshte tashme e rezervuar per pjese te ketyre datave nga nje rezervim tjeter i konfirmuar. Refuzoje kete rezervim.");
+
 
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -294,6 +305,8 @@ public class BookingsController : ControllerBase
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            await _hub.Clients.Group($"car-{booking.CarId}").SendAsync("availabilityChanged", new { carId = booking.CarId });
 
 
             // Email klientit
@@ -539,6 +552,9 @@ public class BookingsController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+
+        if (block != null)
+            await _hub.Clients.Group($"car-{booking.CarId}").SendAsync("availabilityChanged", new { carId = booking.CarId });
 
         try
         {
