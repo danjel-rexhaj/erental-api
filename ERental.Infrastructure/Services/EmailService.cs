@@ -62,16 +62,7 @@ public class EmailService : IEmailService
           <div style='height:5px; background:linear-gradient(90deg,#2dd4bf,#0f766e);'></div>
 
           <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
-            <table role='presentation' cellpadding='0' cellspacing='0'>
-              <tr>
-                <td style='width:32px; vertical-align:middle;'>
-                  <div style='width:30px; height:30px; border-radius:50%; background:#0f766e; color:#ffffff; text-align:center; line-height:30px; font-weight:800; font-size:13px;'>ER</div>
-                </td>
-                <td style='padding-left:10px; vertical-align:middle;'>
-                  <span style='font-size:18px; font-weight:800; color:#111111; letter-spacing:-0.4px;'>ERental</span>
-                </td>
-              </tr>
-            </table>
+            <img src='https://www.erental.store/logo-email.png' alt='ERental' height='26' style='height:26px; width:auto; display:block; border:0;' />
           </div>
 
           <div style='padding:40px;'>
