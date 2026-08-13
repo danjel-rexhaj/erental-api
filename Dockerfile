@@ -31,6 +31,11 @@ COPY --from=build /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+# Disables ASP.NET Core's appsettings.json file-watcher (FileSystemWatcher/inotify), which
+# otherwise crashes at startup on hosts with a low/exhausted inotify instance limit (seen on
+# Render: "configured user limit (128) on the number of inotify instances has been reached").
+# We don't hot-reload config from a mounted file anyway — all config comes from env vars.
+ENV DOTNET_hostBuilder__reloadConfigOnChange=false
 EXPOSE 8080
 
 # All secrets (ConnectionStrings__DefaultConnection, Jwt__Key, SendGrid__ApiKey, R2__*)
