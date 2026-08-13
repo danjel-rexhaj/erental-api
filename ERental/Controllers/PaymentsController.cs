@@ -39,14 +39,15 @@ public class PaymentsController : ControllerBase
         if (user == null || string.IsNullOrWhiteSpace(user.PatentaFotoPara) || string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa))
             return BadRequest("Duhet te shtosh foton e patentes (para dhe mbrapa) ne profilin tend para se te rezervosh.");
 
-        var car = await _context.Cars.FindAsync(dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
 
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
-        decimal totali = dite * car.CmimiDites;
+        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
+        decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
         decimal shuma = dto.Method == "deposit" ? car.CmimiDites : totali;
 
         var result = await _payPal.CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
@@ -66,14 +67,15 @@ public class PaymentsController : ControllerBase
         if (dto.Method != "deposit" && dto.Method != "full")
             return BadRequest("Menyre pagese e panjohur.");
 
-        var car = await _context.Cars.FindAsync(dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
 
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
-        decimal totali = dite * car.CmimiDites;
+        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
+        decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
         decimal pritshme = dto.Method == "deposit" ? car.CmimiDites : totali;
 
         var result = await _payPal.CaptureOrderAsync(dto.PaypalOrderId);

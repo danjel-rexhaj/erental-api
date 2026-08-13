@@ -7,11 +7,14 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
+public record CarPriceOfferDto(int Dite, decimal CmimiTotal);
+
 public record CreateCarDto(
     int CompanyId, string Marka, string Modeli, int Viti, int Km,
     string Karburanti, string Transmisioni, string? Ngjyra, string Targa,
     string Kategoria, int NumriVendeve, bool Klimatizimi, decimal CmimiDites,
-    string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null);
+    string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null,
+    List<CarPriceOfferDto>? PriceOffers = null);
 
 public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
 public record AdminUpdateCarDto(decimal? CmimiDites, string? Statusi);
@@ -68,6 +71,7 @@ public class CarsController : ControllerBase
         var cars = await _context.Cars
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
+            .Include(c => c.PriceOffers)
             .ToListAsync();
         await AttachCompanyStatsAsync(cars);
         return Ok(cars);
@@ -79,6 +83,7 @@ public class CarsController : ControllerBase
         var car = await _context.Cars
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
+            .Include(c => c.PriceOffers)
             .FirstOrDefaultAsync(c => c.CarId == id);
 
         if (car == null) return NotFound();
@@ -145,6 +150,16 @@ public class CarsController : ControllerBase
         _context.Cars.Add(car);
         await _context.SaveChangesAsync();
 
+        if (dto.PriceOffers != null && dto.PriceOffers.Count > 0)
+        {
+            var offers = dto.PriceOffers
+                .Select(o => new CarPriceOffer { CarId = car.CarId, Dite = o.Dite, CmimiTotal = o.CmimiTotal })
+                .ToList();
+            _context.CarPriceOffers.AddRange(offers);
+            await _context.SaveChangesAsync();
+            car.PriceOffers = offers;
+        }
+
         return Ok(car);
     }
 
@@ -177,7 +192,14 @@ public class CarsController : ControllerBase
         car.Cilindra = dto.Cilindra;
         car.Amenities = dto.Amenities;
 
+        _context.CarPriceOffers.RemoveRange(_context.CarPriceOffers.Where(o => o.CarId == id));
+        var newOffers = (dto.PriceOffers ?? new List<CarPriceOfferDto>())
+            .Select(o => new CarPriceOffer { CarId = id, Dite = o.Dite, CmimiTotal = o.CmimiTotal })
+            .ToList();
+        if (newOffers.Count > 0) _context.CarPriceOffers.AddRange(newOffers);
+
         await _context.SaveChangesAsync();
+        car.PriceOffers = newOffers;
         return Ok(car);
     }
 
@@ -248,6 +270,7 @@ public class CarsController : ControllerBase
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
             .Include(c => c.CarAvailabilityBlocks)
+            .Include(c => c.PriceOffers)
             .ToListAsync();
 
         var nearMissThreshold = dataFillimit.AddDays(3);

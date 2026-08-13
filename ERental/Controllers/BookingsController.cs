@@ -78,7 +78,7 @@ public class BookingsController : ControllerBase
     {
         var userId = GetUserId();
 
-        var car = await _context.Cars.Include(c => c.Company).Include(c => c.CarPhotos).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.Company).Include(c => c.CarPhotos).Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
@@ -97,7 +97,8 @@ public class BookingsController : ControllerBase
             return BadRequest("Duhet zgjedhur nje menyre pagese (depozite ose e plote).");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
-        decimal cmimiTotal = diteRezervimi * car.CmimiDites;
+        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == diteRezervimi);
+        decimal cmimiTotal = offer?.CmimiTotal ?? diteRezervimi * car.CmimiDites;
 
         // The capture already happened via POST /api/Payments/paypal/capture — re-verify it here
         // against PayPal directly rather than trusting the client's claimed amount/method.

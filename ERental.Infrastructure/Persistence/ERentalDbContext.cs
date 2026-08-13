@@ -24,6 +24,8 @@ public partial class ERentalDbContext : DbContext
 
     public virtual DbSet<CarPhoto> CarPhotos { get; set; }
 
+    public virtual DbSet<CarPriceOffer> CarPriceOffers { get; set; }
+
     public virtual DbSet<Company> Companies { get; set; }
 
     public virtual DbSet<CompanySubscription> CompanySubscriptions { get; set; }
@@ -205,6 +207,24 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.Car).WithMany(p => p.CarAvailabilityBlocks)
                 .HasForeignKey(d => d.CarId)
                 .HasConstraintName("car_availability_blocks_car_id_fkey");
+        });
+
+        modelBuilder.Entity<CarPriceOffer>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("car_price_offers_pkey");
+
+            entity.ToTable("car_price_offers");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CarId).HasColumnName("car_id");
+            entity.Property(e => e.Dite).HasColumnName("dite");
+            entity.Property(e => e.CmimiTotal)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_total");
+
+            entity.HasOne(d => d.Car).WithMany(p => p.PriceOffers)
+                .HasForeignKey(d => d.CarId)
+                .HasConstraintName("car_price_offers_car_id_fkey");
         });
 
         modelBuilder.Entity<CarPhoto>(entity =>
