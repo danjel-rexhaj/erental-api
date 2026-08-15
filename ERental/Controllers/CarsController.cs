@@ -262,15 +262,17 @@ public class CarsController : ControllerBase
     }
 
     [HttpGet("available")]
-    public async Task<IActionResult> GetAvailableCars(DateOnly dataFillimit, DateOnly dataPerfundimit)
+    public async Task<IActionResult> GetAvailableCars(DateOnly dataFillimit, DateOnly dataPerfundimit, int? companyId = null)
     {
         if (dataPerfundimit <= dataFillimit)
             return BadRequest("Data e dorezimit duhet te jete pas dates se marrjes.");
 
         // Boundaries touching (e.g. one rental ends the 23rd, the next starts the 23rd) are not a conflict —
         // same-day turnover is allowed. Only a genuine overlap blocks availability.
-        var activeCars = await _context.Cars
-            .Where(c => c.Statusi == "active")
+        var query = _context.Cars.Where(c => c.Statusi == "active");
+        if (companyId.HasValue) query = query.Where(c => c.CompanyId == companyId.Value);
+
+        var activeCars = await query
             .Include(c => c.CarPhotos)
             .Include(c => c.Company)
             .Include(c => c.CarAvailabilityBlocks)
@@ -293,7 +295,10 @@ public class CarsController : ControllerBase
             else
             {
                 var lirohetMe = konfliktet.Max(b => b.DataPerfundimit);
-                if (lirohetMe <= nearMissThreshold)
+                // A company's own profile should show its full fleet regardless of how soon a booked
+                // car frees up — the 3-day near-miss cutoff only makes sense for the broad marketplace
+                // search, where showing every distantly-booked car everywhere would be noise.
+                if (companyId.HasValue || lirohetMe <= nearMissThreshold)
                 {
                     c.EshteELire = false;
                     c.LirohetMe = lirohetMe;
