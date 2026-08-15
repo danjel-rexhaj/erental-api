@@ -133,17 +133,24 @@ public class CompaniesController : ControllerBase
                 Statusi = "pending"
             });
             await _context.SaveChangesAsync();
-
-            try
-            {
-                await NotifyAsync(1, "Kerkese verifikimi biznesi", $"{company.Emri} dergoi certifikaten e NIPT-it dhe pret verifikim.", "admin_company_verification");
-
-                var admin = await _context.Users.FindAsync(1);
-                if (admin?.Email != null)
-                    await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);
-            }
-            catch (Exception ex) { Console.WriteLine($"Admin verification email error: {ex.Message}"); }
         }
+
+        // Notify admin regardless of whether a certificate was attached — this used to live inside
+        // the certifikataFile block above, so a business that registered without uploading a cert
+        // at signup time produced zero admin notification (in-app or email) at all, even though it
+        // still showed up in the pending-verification list waiting to be found by chance.
+        try
+        {
+            var message = certUrl != null
+                ? $"{company.Emri} dergoi certifikaten e NIPT-it dhe pret verifikim."
+                : $"{company.Emri} u regjistrua dhe pret verifikim.";
+            await NotifyAsync(1, "Kerkese verifikimi biznesi", message, "admin_company_verification");
+
+            var admin = await _context.Users.FindAsync(1);
+            if (admin?.Email != null)
+                await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);
+        }
+        catch (Exception ex) { Console.WriteLine($"Admin verification email error: {ex.Message}"); }
 
         return Ok(new { company.CompanyId, company.Emri, company.Nipt, Statusi = "Pending verifikim" });
     }
