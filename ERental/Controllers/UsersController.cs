@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record UpdateMeDto(string Emri, string Mbiemri, string? Telefoni, bool HasWhatsapp);
-public record AdminUpdateUserDto(string Emri, string Mbiemri, string? Telefoni);
+public record AdminUpdateUserDto(string Emri, string Mbiemri, string? Telefoni, string Email);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -183,11 +183,19 @@ public class UsersController : ControllerBase
         var user = await _context.Users.FindAsync(id);
         if (user == null) return NotFound();
 
+        var newEmail = dto.Email.Trim().ToLowerInvariant();
+        if (newEmail != user.Email)
+        {
+            var taken = await _context.Users.AnyAsync(u => u.UserId != id && u.Email == newEmail);
+            if (taken) return BadRequest("Ky email eshte ne perdorim nga nje llogari tjeter.");
+            user.Email = newEmail;
+        }
+
         user.Emri = dto.Emri;
         user.Mbiemri = dto.Mbiemri;
         user.Telefoni = dto.Telefoni;
         await _context.SaveChangesAsync();
 
-        return Ok(new { user.UserId, user.Emri, user.Mbiemri, user.Telefoni });
+        return Ok(new { user.UserId, user.Emri, user.Mbiemri, user.Telefoni, user.Email });
     }
 }
