@@ -201,6 +201,7 @@ public class BookingsController : ControllerBase
         var booking = await _context.Bookings
             .Include(b => b.Car)
                 .ThenInclude(c => c.Company)
+                    .ThenInclude(co => co.OwnerUser)
             .Include(b => b.Car)
                 .ThenInclude(c => c.CarPhotos)
             .Include(b => b.User)
@@ -314,6 +315,7 @@ public class BookingsController : ControllerBase
             {
                 var carPhotoUrl = booking.Car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? booking.Car.CarPhotos.FirstOrDefault()?.UrlFotos;
                 var contractUrl = $"https://erental-api.onrender.com/api/Bookings/{booking.BookingId}/contract/{booking.ContractToken}";
+                bool businessHasWhatsapp = company.OwnerUser?.HasWhatsapp == true && company.OwnerUser?.WhatsappVerified == true;
                 await _emailService.SendBookingConfirmedAsync(
                     booking.User.Email,
                     booking.User.Emri,
@@ -327,7 +329,8 @@ public class BookingsController : ControllerBase
                     company.Qyteti,
                     company.Telefoni,
                     carPhotoUrl,
-                    contractUrl
+                    contractUrl,
+                    businessHasWhatsapp
                 );
             }
             catch (Exception ex)

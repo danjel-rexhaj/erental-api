@@ -48,6 +48,15 @@ public class EmailService : IEmailService
     private static string MapsLink(string address, string city) =>
         $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString($"{address}, {city}, Shqipëri")}";
 
+    private static string ToWhatsappNumber(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return "";
+        if (digits.StartsWith("355")) return digits;
+        if (digits.StartsWith("0")) return "355" + digits.Substring(1);
+        return digits;
+    }
+
     // ---- layout shell ----------------------------------------------------
 
     private string Wrap(string bodyHtml, string preheader = "")
@@ -120,7 +129,7 @@ public class EmailService : IEmailService
         <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash. Mos e ndaj me askënd.</p>";
 
     // Airbnb-style reservation card: photo, pickup/return dates, location, confirmation code, price, host contact.
-    private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null)
+    private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null, bool phoneHasWhatsapp = false)
     {
         var image = string.IsNullOrEmpty(carPhotoUrl) ? "" : $@"
             <img src='{carPhotoUrl}' alt='{makina}' style='width:100%; height:200px; object-fit:cover; display:block;' />";
@@ -138,10 +147,22 @@ public class EmailService : IEmailService
               <td style='padding:14px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right;'>{total.Value}€</td>
             </tr>" : "";
 
+        var whatsappButton = phoneHasWhatsapp ? $@"
+                <td style='padding-left:8px;'>
+                  <a href='https://wa.me/{ToWhatsappNumber(phone ?? "")}' style='display:inline-block; font-size:13px; font-weight:700; color:#ffffff; background:#25D366; border-radius:8px; padding:10px 16px; text-decoration:none;'>WhatsApp</a>
+                </td>" : "";
+
         var contactRow = string.IsNullOrEmpty(phone) ? "" : $@"
             <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
               {PersonRow(bizniEmri, "Biznesi që ofron këtë makinë")}
-              <a href='tel:{phone}' style='display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:#ffffff; background:#0f766e; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
+              <table role='presentation' cellpadding='0' cellspacing='0' style='margin-top:10px;'>
+                <tr>
+                  <td>
+                    <a href='tel:{phone}' style='display:inline-block; font-size:13px; font-weight:700; color:#ffffff; background:#0f766e; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
+                  </td>
+                  {whatsappButton}
+                </tr>
+              </table>
             </div>";
 
         return $@"
@@ -244,7 +265,7 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null)
+    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null, bool companyHasWhatsapp = false)
     {
         var contractButton = string.IsNullOrEmpty(contractUrl) ? "" : $@"
             <div style='text-align:center; margin:0 0 24px 0;'>
@@ -259,7 +280,7 @@ public class EmailService : IEmailService
                 Përshëndetje <strong>{emri}</strong>, <strong>{bizniEmri}</strong> e konfirmoi rezervimin tënd. Je gati për udhëtimin.
             </p>
 
-            {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone)}
+            {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone, companyHasWhatsapp)}
 
             {contractButton}
 
