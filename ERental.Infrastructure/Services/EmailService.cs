@@ -68,7 +68,7 @@ public class EmailService : IEmailService
         {preheaderHtml}
         <div style='font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; background:#ffffff; color:#222222;'>
 
-          <div style='height:5px; background:linear-gradient(90deg,#2dd4bf,#0f766e);'></div>
+          <div style='height:5px; background:linear-gradient(90deg,#0ea5e9,#06b6d4);'></div>
 
           <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
             <img src='https://www.erental.store/logo-email.png' alt='ERental' height='26' style='height:26px; width:auto; display:block; border:0;' />
@@ -84,7 +84,7 @@ public class EmailService : IEmailService
                 Platforma që lidh biznese të verifikuara të makinave me qera me klientët në të gjithë Shqipërinë.
             </p>
             <p style='color:#767676; font-size:12px; line-height:1.6; margin:0;'>
-                <a href='mailto:info@erental.store' style='color:#0f766e; text-decoration:underline;'>info@erental.store</a>
+                <a href='mailto:info@erental.store' style='color:#0284c7; text-decoration:underline;'>info@erental.store</a>
                 &nbsp;·&nbsp; Ky email u dërgua sepse ke një veprim aktiv në llogarinë tënde ERental.
             </p>
           </div>
@@ -138,7 +138,7 @@ public class EmailService : IEmailService
             <div style='margin-top:20px; padding-top:20px; border-top:1px solid #ebebeb;'>
               {SectionLabel("Vendndodhja")}
               <p style='font-size:14px; color:#111111; margin:0 0 6px 0;'>{address}{(string.IsNullOrEmpty(city) ? "" : $", {city}")}</p>
-              <a href='{MapsLink(address, city ?? "")}' style='font-size:13px; font-weight:600; color:#0f766e; text-decoration:underline;'>Merr udhëzime →</a>
+              <a href='{MapsLink(address, city ?? "")}' style='font-size:13px; font-weight:600; color:#0284c7; text-decoration:underline;'>Merr udhëzime →</a>
             </div>";
 
         var priceRow = total.HasValue ? $@"
@@ -158,7 +158,7 @@ public class EmailService : IEmailService
               <table role='presentation' cellpadding='0' cellspacing='0' style='margin-top:10px;'>
                 <tr>
                   <td>
-                    <a href='tel:{phone}' style='display:inline-block; font-size:13px; font-weight:700; color:#ffffff; background:#0f766e; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
+                    <a href='tel:{phone}' style='display:inline-block; font-size:13px; font-weight:700; color:#ffffff; background:#0284c7; border-radius:8px; padding:10px 16px; text-decoration:none;'>Telefono {phone}</a>
                   </td>
                   {whatsappButton}
                 </tr>
@@ -346,7 +346,7 @@ public class EmailService : IEmailService
         var paidRow = $@"
             <tr>
                 <td colspan='2' style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Paguar me kartë ({(eshtePagesePlote ? "pagesë e plotë" : "depozitë")})</td>
-                <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#0f766e; font-size:14px; font-weight:800; text-align:right; white-space:nowrap;'>{amountPaid}€</td>
+                <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#059669; font-size:14px; font-weight:800; text-align:right; white-space:nowrap;'>{amountPaid}€</td>
             </tr>";
 
         var cashRow = eshtePagesePlote ? "" : $@"
@@ -536,7 +536,7 @@ public class EmailService : IEmailService
             </div>
 
             <div style='text-align:center; margin-bottom:24px;'>
-                <p style='color:#0f766e; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin:0 0 6px 0;'>Kontratë Qeraje · Marketplace ERental</p>
+                <p style='color:#0284c7; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin:0 0 6px 0;'>Kontratë Qeraje · Marketplace ERental</p>
                 <h1 style='color:#111111; font-size:21px; font-weight:800; margin:0;'>Rezervimi {confirmim}</h1>
             </div>
 
