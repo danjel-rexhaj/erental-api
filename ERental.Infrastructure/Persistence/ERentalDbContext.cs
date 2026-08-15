@@ -583,7 +583,7 @@ public partial class ERentalDbContext : DbContext
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("data_krijimit");
             entity.Property(e => e.BookingId).HasColumnName("booking_id");
-            entity.Property(e => e.Target).HasMaxLength(20).HasColumnName("target");
+            entity.Property(e => e.Target).HasMaxLength(50).HasColumnName("target");
         });
 
 

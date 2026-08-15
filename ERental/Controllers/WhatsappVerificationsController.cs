@@ -117,6 +117,12 @@ public class WhatsappVerificationsController : ControllerBase
         verification.User.WhatsappVerified = true;
 
         await _context.SaveChangesAsync();
+
+        // Pushes the client's own profile state live via the same SignalR notification channel,
+        // instead of leaving WhatsappVerified stuck showing false until their next page load.
+        try { await NotifyAsync(verification.UserId, "WhatsApp u verifikua", "Numri yt WhatsApp u verifikua.", "whatsapp_verified"); }
+        catch (Exception ex) { Console.WriteLine($"WhatsApp verified notify error: {ex.Message}"); }
+
         return Ok(new { verified = true });
     }
 

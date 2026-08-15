@@ -70,7 +70,7 @@ public class AmenitySuggestionsController : ControllerBase
         {
             await NotifyAsync(1, "Sugjerim i ri pajisjeje", $"{company.Emri} sugjeroi: {suggestion.Suggestion}", "admin_amenity_suggestion");
         }
-        catch { }
+        catch (Exception ex) { Console.WriteLine($"Amenity suggestion admin notify error: {ex.Message}"); }
 
         return Ok(suggestion);
     }
