@@ -90,7 +90,7 @@ public class CarsController : ControllerBase
             .Include(c => c.PriceOffers)
             .FirstOrDefaultAsync(c => c.CarId == id);
 
-        if (car == null) return NotFound();
+        if (car == null || car.Company?.EshteVerifikuar != true) return NotFound();
         await AttachCompanyStatsAsync(new[] { car });
         return Ok(car);
     }
@@ -269,7 +269,9 @@ public class CarsController : ControllerBase
 
         // Boundaries touching (e.g. one rental ends the 23rd, the next starts the 23rd) are not a conflict —
         // same-day turnover is allowed. Only a genuine overlap blocks availability.
-        var query = _context.Cars.Where(c => c.Statusi == "active");
+        // Company.EshteVerifikuar gate keeps a business's cars unbookable/unlisted to the public until
+        // admin approves it -- registering and adding cars must not be enough to go live on its own.
+        var query = _context.Cars.Where(c => c.Statusi == "active" && c.Company.EshteVerifikuar == true);
         if (companyId.HasValue) query = query.Where(c => c.CompanyId == companyId.Value);
 
         var activeCars = await query
