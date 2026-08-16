@@ -454,7 +454,7 @@ public class EmailService : IEmailService
             <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
                 Biznesi <strong>{companyName}</strong> (ID {companyId}) dërgoi certifikatën e NIPT-it dhe pret verifikim.
             </p>
-            <a href='https://erental.store/#/biznesi?tab=admin' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
+            <a href='https://erental.store/biznesi?tab=admin' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
                 Shqyrto kërkesën
             </a>";
 
@@ -469,7 +469,7 @@ public class EmailService : IEmailService
             <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
                 <strong>{userName}</strong>{(string.IsNullOrEmpty(userPhone) ? "" : $" ({userPhone})")} kërkoi verifikim të numrit të WhatsApp dhe pret shqyrtim.
             </p>
-            <a href='https://erental.store/#/biznesi?tab=whatsapp' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
+            <a href='https://erental.store/biznesi?tab=whatsapp' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
                 Shqyrto kërkesën
             </a>";
 
