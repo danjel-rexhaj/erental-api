@@ -10,10 +10,10 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record RegisterCompanyDto(string Emri, string Email, string Telefoni, string Adresa, string Qyteti, string Nipt);
 public record UpdateLocationDto(double Latitude, double Longitude);
 public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
+public record RejectCompanyDto(string Reason);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -70,6 +70,14 @@ public class CompaniesController : ControllerBase
     [FromForm] double? longitude, [FromForm] bool? ofronDergimMakine, IFormFile? certifikataFile)
     {
         var userId = GetUserId();
+
+        if (string.IsNullOrWhiteSpace(emri)) return BadRequest("Emri i biznesit eshte i detyrueshem.");
+        if (string.IsNullOrWhiteSpace(telefoni)) return BadRequest("Telefoni eshte i detyrueshem.");
+        if (string.IsNullOrWhiteSpace(adresa)) return BadRequest("Adresa eshte e detyrueshme.");
+        if (string.IsNullOrWhiteSpace(qyteti)) return BadRequest("Qyteti eshte i detyrueshem.");
+        if (string.IsNullOrWhiteSpace(nipt)) return BadRequest("NIPT-i eshte i detyrueshem.");
+        if (string.IsNullOrWhiteSpace(iban)) return BadRequest("IBAN eshte i detyrueshem.");
+        if (certifikataFile == null || certifikataFile.Length == 0) return BadRequest("Certifikata e NIPT-it eshte e detyrueshme.");
 
         if (await _context.Companies.AnyAsync(c => c.Nipt == nipt))
             return BadRequest("NIPT-i eshte i regjistruar tashme.");
@@ -323,9 +331,10 @@ public class CompaniesController : ControllerBase
 
     [HttpDelete("{id}/reject")]
     [Authorize]
-    public async Task<IActionResult> RejectCompany(int id)
+    public async Task<IActionResult> RejectCompany(int id, RejectCompanyDto dto)
     {
         if (GetUserId() != 1) return Forbid();
+        if (string.IsNullOrWhiteSpace(dto?.Reason)) return BadRequest("Arsyeja e refuzimit eshte e detyrueshme.");
 
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
         if (company == null) return NotFound();
@@ -334,9 +343,19 @@ public class CompaniesController : ControllerBase
         if (await _context.Cars.AnyAsync(c => c.CompanyId == id))
             return BadRequest("Ky biznes ka tashme makina te shtuara dhe nuk mund te refuzohet automatikisht -- kontakto zhvilluesin.");
 
+        var toEmail = company.Email;
+        var companyName = company.Emri;
+
         _context.CompanyVerifications.RemoveRange(_context.CompanyVerifications.Where(v => v.CompanyId == id));
         _context.Companies.Remove(company);
         await _context.SaveChangesAsync();
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(toEmail))
+                await _emailService.SendCompanyRejectedAsync(toEmail, companyName, dto.Reason);
+        }
+        catch (Exception ex) { Console.WriteLine($"Company rejected email error: {ex.Message}"); }
 
         return Ok(new { message = "Kerkesa u refuzua dhe biznesi u fshi." });
     }

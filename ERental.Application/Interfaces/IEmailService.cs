@@ -27,6 +27,7 @@ public interface IEmailService
     Task SendAdminVerificationRequestAsync(string adminEmail, string companyName, int companyId);
     Task SendAdminWhatsappVerificationRequestAsync(string adminEmail, string userName, string? userPhone);
     Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName);
+    Task SendCompanyRejectedAsync(string toEmail, string companyName, string reason);
     Task SendWelcomeAsync(string toEmail, string emri);
     string BuildContractHtmlPage(RentalContractDto dto);
 }

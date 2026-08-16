@@ -490,6 +490,24 @@ public class EmailService : IEmailService
         await SendAsync(msg);
     }
 
+    public async Task SendCompanyRejectedAsync(string toEmail, string companyName, string reason)
+    {
+        var body = $@"
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Kërkesa e regjistrimit nuk u aprovua</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 16px 0;'>
+                Kërkesa jote për regjistrimin e biznesit <strong>{companyName}</strong> në ERental u shqyrtua dhe nuk u aprovua.
+            </p>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                <strong>Arsyeja:</strong> {reason}
+            </p>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Mund të riaplikosh në çdo kohë pasi të rregullosh çështjen e sipërpërmendur.
+            </p>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), $"Kërkesa jote u refuzua — {companyName}", "", Wrap(body, "Kontrollo arsyen dhe riprovo"));
+        await SendAsync(msg);
+    }
+
     public async Task SendWelcomeAsync(string toEmail, string emri)
     {
         var body = $@"
