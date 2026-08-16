@@ -13,7 +13,6 @@ namespace ERental.Controllers;
 public record UpdateLocationDto(double Latitude, double Longitude);
 public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
-public record RejectCompanyDto(string Reason);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -329,12 +328,14 @@ public class CompaniesController : ControllerBase
         return Ok(new { message = "Biznesi u verifikua.", company.EshteVerifikuar, company.CompanyId });
     }
 
+    // Reason travels as a query param, not a JSON body -- some proxies/CDNs strip the body off
+    // DELETE requests entirely, which was causing a 415 from the JSON formatter in production.
     [HttpDelete("{id}/reject")]
     [Authorize]
-    public async Task<IActionResult> RejectCompany(int id, RejectCompanyDto dto)
+    public async Task<IActionResult> RejectCompany(int id, [FromQuery] string? reason)
     {
         if (GetUserId() != 1) return Forbid();
-        if (string.IsNullOrWhiteSpace(dto?.Reason)) return BadRequest("Arsyeja e refuzimit eshte e detyrueshme.");
+        if (string.IsNullOrWhiteSpace(reason)) return BadRequest("Arsyeja e refuzimit eshte e detyrueshme.");
 
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
         if (company == null) return NotFound();
@@ -353,7 +354,7 @@ public class CompaniesController : ControllerBase
         try
         {
             if (!string.IsNullOrWhiteSpace(toEmail))
-                await _emailService.SendCompanyRejectedAsync(toEmail, companyName, dto.Reason);
+                await _emailService.SendCompanyRejectedAsync(toEmail, companyName, reason);
         }
         catch (Exception ex) { Console.WriteLine($"Company rejected email error: {ex.Message}"); }
 
