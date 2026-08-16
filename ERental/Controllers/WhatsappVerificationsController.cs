@@ -66,9 +66,9 @@ public class WhatsappVerificationsController : ControllerBase
             {
                 await NotifyAsync(1, "Kerkese verifikimi WhatsApp", $"{requester.Emri} {requester.Mbiemri} kerkoi verifikim te numrit WhatsApp.", "admin_whatsapp_verification");
 
-                var admin = await _context.Users.FindAsync(1);
-                if (admin?.Email != null)
-                    await _emailService.SendAdminWhatsappVerificationRequestAsync(admin.Email, $"{requester.Emri} {requester.Mbiemri}", requester.Telefoni);
+                // Hardcoded to the monitored support inbox rather than the userId=1 account's login
+                // email, which may not be watched -- same fix as the business-registration email.
+                await _emailService.SendAdminWhatsappVerificationRequestAsync("info@erental.store", $"{requester.Emri} {requester.Mbiemri}", requester.Telefoni);
             }
         }
         catch (Exception ex) { Console.WriteLine($"WhatsApp verification admin notify error: {ex.Message}"); }
