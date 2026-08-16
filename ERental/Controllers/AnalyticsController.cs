@@ -38,6 +38,13 @@ public class AnalyticsController : ControllerBase
             .OrderByDescending(x => x.Shikime)
             .ToListAsync();
 
+        var bookingsPerCar = await _context.Bookings
+            .Where(b => carIds.Contains(b.CarId))
+            .GroupBy(b => new { b.CarId, b.Car.Marka, b.Car.Modeli })
+            .Select(g => new { g.Key.CarId, Makina = g.Key.Marka + " " + g.Key.Modeli, Rezervime = g.Count() })
+            .OrderByDescending(x => x.Rezervime)
+            .ToListAsync();
+
         bool daily = days.HasValue;
         var since = daily
             ? DateTime.SpecifyKind(DateTime.UtcNow.AddDays(-Math.Clamp(days!.Value, 1, 90)), DateTimeKind.Unspecified)
@@ -68,6 +75,7 @@ public class AnalyticsController : ControllerBase
             companyId = company.CompanyId,
             companyName = company.Emri,
             viewsPerCar,
+            bookingsPerCar,
             monthly,
             totals = new { totalRevenue, totalBookings, totalViews }
         });
