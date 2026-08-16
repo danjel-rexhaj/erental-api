@@ -559,37 +559,37 @@ public class BookingsController : ControllerBase
         if (block != null)
             await _hub.Clients.Group($"car-{booking.CarId}").SendAsync("availabilityChanged", new { carId = booking.CarId });
 
+        // The client always gets their own copy/notification now -- previously only the party that
+        // did NOT initiate the cancellation was told, so a client who cancelled their own booking
+        // (or had it cancelled by admin) never received any confirmation at all.
         try
         {
             var carPhotoUrl = booking.Car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? booking.Car.CarPhotos.FirstOrDefault()?.UrlFotos;
-            if (eshteBiznesi)
-            {
+
+            await _emailService.SendBookingCancelledAsync(
+                booking.User.Email, booking.User.Emri,
+                $"{booking.Car.Marka} {booking.Car.Modeli}",
+                booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
+
+            if (!eshteBiznesi && booking.Car.Company.Email != null)
                 await _emailService.SendBookingCancelledAsync(
-                    booking.User.Email, booking.User.Emri,
+                    booking.Car.Company.Email, booking.Car.Company.Emri,
                     $"{booking.Car.Marka} {booking.Car.Modeli}",
                     booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
-            }
-            else
-            {
-                if (booking.Car.Company.Email != null)
-                    await _emailService.SendBookingCancelledAsync(
-                        booking.Car.Company.Email, booking.Car.Company.Emri,
-                        $"{booking.Car.Marka} {booking.Car.Modeli}",
-                        booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
-            }
         }
         catch (Exception ex) { Console.WriteLine($"CancelBooking email error: {ex.Message}"); }
 
         try
         {
-            var targetUserId = eshteBiznesi ? booking.UserId : booking.Car.Company.OwnerUserId;
-            var notifTarget = eshteBiznesi ? "client_booking" : "business_booking";
             var veprim = eshteBiznesi ? "u refuzua" : "u anulua";
             var notifMsg = !string.IsNullOrWhiteSpace(booking.ArsyejaRefuzimit)
                 ? $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} {veprim}. Arsyeja: {booking.ArsyejaRefuzimit}"
                 : $"Rezervimi per {booking.Car.Marka} {booking.Car.Modeli} {veprim}";
-            if (targetUserId != null)
-                await NotifyAsync(targetUserId.Value, "Rezervimi u anulua", notifMsg, booking.BookingId, notifTarget);
+
+            await NotifyAsync(booking.UserId, "Rezervimi u anulua", notifMsg, booking.BookingId, "client_booking");
+
+            if (!eshteBiznesi && booking.Car.Company.OwnerUserId != null)
+                await NotifyAsync(booking.Car.Company.OwnerUserId.Value, "Rezervimi u anulua", notifMsg, booking.BookingId, "business_booking");
         }
         catch { }
 
