@@ -514,8 +514,14 @@ public class BookingsController : ControllerBase
         // a booking can sit pending for days waiting on the business, and the client shouldn't lose
         // their cancellation window before they even know if it was accepted. A still-pending
         // booking (never confirmed) and any business/admin-initiated cancellation always refund.
+        // The 10% deposit is a non-refundable holding fee regardless of status or who cancels --
+        // it's what lets the business block the car off calendar the moment it's requested.
         bool refundEligible = true;
-        if (eshteKlienti && !eshteBiznesi && !eshteAdmin && booking.Statusi == "confirmed" && booking.DataKonfirmimit.HasValue)
+        if (booking.PaymentMethod == "paypal_deposit")
+        {
+            refundEligible = false;
+        }
+        else if (eshteKlienti && !eshteBiznesi && !eshteAdmin && booking.Statusi == "confirmed" && booking.DataKonfirmimit.HasValue)
         {
             var oreQeKaluan = (DateTime.UtcNow - booking.DataKonfirmimit.Value).TotalHours;
             refundEligible = oreQeKaluan <= 12;
