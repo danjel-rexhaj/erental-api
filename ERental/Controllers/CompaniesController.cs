@@ -146,9 +146,9 @@ public class CompaniesController : ControllerBase
                 : $"{company.Emri} u regjistrua dhe pret verifikim.";
             await NotifyAsync(1, "Kerkese verifikimi biznesi", message, "admin_company_verification");
 
-            var admin = await _context.Users.FindAsync(1);
-            if (admin?.Email != null)
-                await _emailService.SendAdminVerificationRequestAsync(admin.Email, company.Emri, company.CompanyId);
+            // Hardcoded to the monitored support inbox rather than the userId=1 account's login
+            // email, which may not be watched -- a new business registration must always reach here.
+            await _emailService.SendAdminVerificationRequestAsync("info@erental.store", company.Emri, company.CompanyId);
         }
         catch (Exception ex) { Console.WriteLine($"Admin verification email error: {ex.Message}"); }
 
@@ -312,6 +312,26 @@ public class CompaniesController : ControllerBase
         catch (Exception ex) { Console.WriteLine($"Company verified email error: {ex.Message}"); }
 
         return Ok(new { message = "Biznesi u verifikua.", company.EshteVerifikuar, company.CompanyId });
+    }
+
+    [HttpDelete("{id}/reject")]
+    [Authorize]
+    public async Task<IActionResult> RejectCompany(int id)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
+        if (company == null) return NotFound();
+        if (company.EshteVerifikuar == true) return BadRequest("Ky biznes eshte tashme i verifikuar dhe nuk mund te refuzohet.");
+
+        if (await _context.Cars.AnyAsync(c => c.CompanyId == id))
+            return BadRequest("Ky biznes ka tashme makina te shtuara dhe nuk mund te refuzohet automatikisht -- kontakto zhvilluesin.");
+
+        _context.CompanyVerifications.RemoveRange(_context.CompanyVerifications.Where(v => v.CompanyId == id));
+        _context.Companies.Remove(company);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Kerkesa u refuzua dhe biznesi u fshi." });
     }
 
     [HttpGet("pending")]
