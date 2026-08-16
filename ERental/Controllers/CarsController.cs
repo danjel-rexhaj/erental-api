@@ -81,6 +81,36 @@ public class CarsController : ControllerBase
         return Ok(cars);
     }
 
+    // Homepage "Të zgjedhurat" strip -- most-viewed cars from verified businesses, falling back to
+    // newest-first for cars with zero views so the strip still fills up on a young platform where
+    // most cars haven't accumulated views yet.
+    [HttpGet("featured")]
+    public async Task<IActionResult> GetFeaturedCars(int take = 10)
+    {
+        take = Math.Clamp(take, 1, 20);
+
+        var viewCounts = await _context.CarViews
+            .GroupBy(v => v.CarId)
+            .Select(g => new { CarId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CarId, x => x.Count);
+
+        var cars = await _context.Cars
+            .Where(c => c.Statusi == "active" && c.Company.EshteVerifikuar == true)
+            .Include(c => c.CarPhotos)
+            .Include(c => c.Company)
+            .Include(c => c.PriceOffers)
+            .OrderByDescending(c => c.CarId)
+            .ToListAsync();
+
+        var featured = cars
+            .OrderByDescending(c => viewCounts.TryGetValue(c.CarId, out var v) ? v : 0)
+            .Take(take)
+            .ToList();
+
+        await AttachCompanyStatsAsync(featured);
+        return Ok(featured);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetCarById(int id)
     {
