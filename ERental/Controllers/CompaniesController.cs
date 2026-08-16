@@ -173,6 +173,32 @@ public class CompaniesController : ControllerBase
     public async Task<IActionResult> GetCompanies()
     {
         var companies = await _context.Companies.ToListAsync();
+
+        // AvgRating/ReviewCount/CarCount aren't persisted columns kept in sync elsewhere -- compute
+        // them here the same way CarsController.AttachCompanyStatsAsync does, so the homepage's
+        // verified-businesses cards can show real numbers instead of stale/empty values.
+        var companyIds = companies.Select(c => c.CompanyId).ToList();
+        var ratingStats = await _context.Reviews
+            .Where(r => companyIds.Contains(r.CompanyId) && r.Rating != null)
+            .GroupBy(r => r.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Avg = g.Average(r => r.Rating!.Value), Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId);
+        var carCounts = await _context.Cars
+            .Where(c => companyIds.Contains(c.CompanyId) && c.Statusi == "active")
+            .GroupBy(c => c.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count);
+
+        foreach (var company in companies)
+        {
+            if (ratingStats.TryGetValue(company.CompanyId, out var rs))
+            {
+                company.AvgRating = Math.Round(rs.Avg, 1);
+                company.ReviewCount = rs.Count;
+            }
+            company.CarCount = carCounts.TryGetValue(company.CompanyId, out var cc) ? cc : 0;
+        }
+
         return Ok(companies);
     }
 
