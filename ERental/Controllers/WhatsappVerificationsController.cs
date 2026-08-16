@@ -59,19 +59,22 @@ public class WhatsappVerificationsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        try
+        var requester = await _context.Users.FindAsync(userId);
+        if (requester != null)
         {
-            var requester = await _context.Users.FindAsync(userId);
-            if (requester != null)
-            {
-                await NotifyAsync(1, "Kerkese verifikimi WhatsApp", $"{requester.Emri} {requester.Mbiemri} kerkoi verifikim te numrit WhatsApp.", "admin_whatsapp_verification");
+            // In-app notify and email are in separate try/catch blocks -- one try wrapping both
+            // meant a failure in the bell notification silently killed the email too.
+            try { await NotifyAsync(1, "Kerkese verifikimi WhatsApp", $"{requester.Emri} {requester.Mbiemri} kerkoi verifikim te numrit WhatsApp.", "admin_whatsapp_verification"); }
+            catch (Exception ex) { Console.WriteLine($"WhatsApp verification admin notify error: {ex.Message}"); }
 
+            try
+            {
                 // Hardcoded to the monitored support inbox rather than the userId=1 account's login
                 // email, which may not be watched -- same fix as the business-registration email.
                 await _emailService.SendAdminWhatsappVerificationRequestAsync("info@erental.store", $"{requester.Emri} {requester.Mbiemri}", requester.Telefoni);
             }
+            catch (Exception ex) { Console.WriteLine($"WhatsApp verification admin email error: {ex.Message}"); }
         }
-        catch (Exception ex) { Console.WriteLine($"WhatsApp verification admin notify error: {ex.Message}"); }
 
         return Ok(new { code });
     }

@@ -139,13 +139,20 @@ public class CompaniesController : ControllerBase
         // the certifikataFile block above, so a business that registered without uploading a cert
         // at signup time produced zero admin notification (in-app or email) at all, even though it
         // still showed up in the pending-verification list waiting to be found by chance.
+        // In-app notify and email are in separate try/catch blocks -- previously one try wrapped
+        // both, so a failure in the bell notification (e.g. a DB constraint) silently killed the
+        // email too, even though the two channels have nothing to do with each other.
         try
         {
             var message = certUrl != null
                 ? $"{company.Emri} dergoi certifikaten e NIPT-it dhe pret verifikim."
                 : $"{company.Emri} u regjistrua dhe pret verifikim.";
             await NotifyAsync(1, "Kerkese verifikimi biznesi", message, "admin_company_verification");
+        }
+        catch (Exception ex) { Console.WriteLine($"Admin verification notify error: {ex.Message}"); }
 
+        try
+        {
             // Hardcoded to the monitored support inbox rather than the userId=1 account's login
             // email, which may not be watched -- a new business registration must always reach here.
             await _emailService.SendAdminVerificationRequestAsync("info@erental.store", company.Emri, company.CompanyId);
