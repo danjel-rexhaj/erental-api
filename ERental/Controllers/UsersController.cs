@@ -150,6 +150,39 @@ public class UsersController : ControllerBase
         return Ok(new { user.Emri, user.Mbiemri, user.Telefoni, user.HasWhatsapp });
     }
 
+    // Anonymizes rather than hard-deletes the row -- booking history a business needs for its own
+    // records stays intact and referentially valid, but the account can no longer be logged into
+    // and carries no personal data anymore. No schema change: reuses existing columns.
+    [HttpDelete("me")]
+    [Authorize]
+    public async Task<IActionResult> DeleteMe()
+    {
+        var userId = GetUserId();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+        if (user == null) return NotFound();
+
+        if (await _context.Companies.AnyAsync(c => c.OwnerUserId == userId))
+            return BadRequest("Ke nje biznes te regjistruar -- kontakto support per te fshire llogarine.");
+
+        user.Emri = "Perdorues";
+        user.Mbiemri = "i fshire";
+        user.Email = $"deleted-{userId}@erental.store";
+        user.Telefoni = null;
+        user.FotoProfili = null;
+        user.PatentaFotoPara = null;
+        user.PatentaFotoMbrapa = null;
+        user.HasWhatsapp = false;
+        user.WhatsappVerified = false;
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString());
+
+        _context.WhatsappVerifications.RemoveRange(_context.WhatsappVerifications.Where(w => w.UserId == userId));
+        _context.EmailVerifications.RemoveRange(_context.EmailVerifications.Where(e => e.UserId == userId));
+        _context.Notifications.RemoveRange(_context.Notifications.Where(n => n.UserId == userId));
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Llogaria u fshi." });
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> GetUsers()
