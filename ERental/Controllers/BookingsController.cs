@@ -166,7 +166,7 @@ public class BookingsController : ControllerBase
         try
         {
             if (klienti != null)
-                await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, booking.BookingId, carPhotoUrl);
+                await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, booking.BookingId, carPhotoUrl, car.Targa);
 
             if (car.Company.Email != null)
                 await _emailService.SendBookingRequestToBusinessAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
@@ -330,7 +330,8 @@ public class BookingsController : ControllerBase
                     company.Telefoni,
                     carPhotoUrl,
                     contractUrl,
-                    businessHasWhatsapp
+                    businessHasWhatsapp,
+                    booking.Car.Targa
                 );
             }
             catch (Exception ex)

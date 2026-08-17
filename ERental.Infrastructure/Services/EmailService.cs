@@ -129,8 +129,12 @@ public class EmailService : IEmailService
         <p style='color:#717171; font-size:13px; text-align:center; margin:0;'>Ky kod skadon pas 15 minutash. Mos e ndaj me askënd.</p>";
 
     // Airbnb-style reservation card: photo, pickup/return dates, location, confirmation code, price, host contact.
-    private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null, bool phoneHasWhatsapp = false)
+    private string TripCard(string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, int bookingId, decimal? total = null, string? carPhotoUrl = null, string? address = null, string? city = null, string? phone = null, bool phoneHasWhatsapp = false, string? targa = null)
     {
+        var subtitleParts = new List<string>();
+        if (!string.IsNullOrEmpty(bizniEmri)) subtitleParts.Add($"Nga {bizniEmri}");
+        if (!string.IsNullOrEmpty(targa)) subtitleParts.Add($"Targa {targa}");
+        var subtitle = string.Join(" · ", subtitleParts);
         var image = string.IsNullOrEmpty(carPhotoUrl) ? "" : $@"
             <img src='{carPhotoUrl}' alt='{makina}' style='width:100%; height:200px; object-fit:cover; display:block;' />";
 
@@ -171,7 +175,7 @@ public class EmailService : IEmailService
             <div style='padding:24px;'>
                 {SectionLabel("Makinë me qera")}
                 <h2 style='font-size:19px; font-weight:800; color:#111111; margin:0 0 2px 0;'>{makina}</h2>
-                <p style='font-size:13px; color:#717171; margin:0 0 20px 0;'>Nga {bizniEmri}</p>
+                <p style='font-size:13px; color:#717171; margin:0 0 20px 0;'>{subtitle}</p>
 
                 <table role='presentation' width='100%' cellpadding='0' cellspacing='0'>
                   <tr>
@@ -228,7 +232,7 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingPendingToClientAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? carPhotoUrl = null)
+    public async Task SendBookingPendingToClientAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? carPhotoUrl = null, string? targa = null)
     {
         var body = $@"
             <h1 style='color:#111111; font-size:24px; font-weight:800; margin:0 0 6px 0;'>Kërkesa u dërgua</h1>
@@ -236,7 +240,7 @@ public class EmailService : IEmailService
                 Përshëndetje <strong>{emri}</strong>, rezervimi yt është dërguar dhe pret miratimin e biznesit.
             </p>
 
-            {TripCard(makina, "", dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl)}
+            {TripCard(makina, "", dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, targa: targa)}
 
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
                 Do të njoftohesh me email dhe në platformë sapo biznesi ta shqyrtojë kërkesën.
@@ -265,7 +269,7 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null, bool companyHasWhatsapp = false)
+    public async Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null, bool companyHasWhatsapp = false, string? targa = null)
     {
         var contractButton = string.IsNullOrEmpty(contractUrl) ? "" : $@"
             <div style='text-align:center; margin:0 0 24px 0;'>
@@ -280,7 +284,7 @@ public class EmailService : IEmailService
                 Përshëndetje <strong>{emri}</strong>, <strong>{bizniEmri}</strong> e konfirmoi rezervimin tënd. Je gati për udhëtimin.
             </p>
 
-            {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone, companyHasWhatsapp)}
+            {TripCard(makina, bizniEmri, dataFillimit, dataPerfundimit, bookingId, total, carPhotoUrl, companyAddress, companyCity, companyPhone, companyHasWhatsapp, targa)}
 
             {contractButton}
 
