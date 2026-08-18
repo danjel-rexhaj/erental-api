@@ -183,6 +183,82 @@ public class UsersController : ControllerBase
         return Ok(new { message = "Llogaria u fshi." });
     }
 
+    // Admin-only hard delete for clearing out test/junk accounts -- unlike DeleteMe (which
+    // anonymizes and blocks if the caller owns a company), this actually removes the row and, if
+    // the user owns a company, cascades through that company exactly like Companies/{id}/force
+    // does. Staged children-first since several FKs here are RESTRICT at the DB level and
+    // Notification.BookingId isn't modeled in EF.
+    [HttpDelete("{id}/force")]
+    [Authorize]
+    public async Task<IActionResult> ForceDeleteUser(int id)
+    {
+        if (GetUserId() != 1) return Forbid();
+        if (id == 1) return BadRequest("S'mund te fshihet llogaria e adminit.");
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == id);
+        if (user == null) return NotFound();
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == id);
+        if (company != null)
+        {
+            var carIds = await _context.Cars.Where(c => c.CompanyId == company.CompanyId).Select(c => c.CarId).ToListAsync();
+            var companyBookingIds = await _context.Bookings.Where(b => carIds.Contains(b.CarId)).Select(b => b.BookingId).ToListAsync();
+
+            _context.Payments.RemoveRange(_context.Payments.Where(p => companyBookingIds.Contains(p.BookingId)));
+            _context.Reviews.RemoveRange(_context.Reviews.Where(r => companyBookingIds.Contains(r.BookingId) || r.CompanyId == company.CompanyId));
+            _context.LicenseViews.RemoveRange(_context.LicenseViews.Where(v => companyBookingIds.Contains(v.BookingId)));
+            _context.Notifications.RemoveRange(_context.Notifications.Where(n => n.BookingId != null && companyBookingIds.Contains(n.BookingId.Value)));
+            await _context.SaveChangesAsync();
+
+            _context.Bookings.RemoveRange(_context.Bookings.Where(b => carIds.Contains(b.CarId)));
+            await _context.SaveChangesAsync();
+
+            _context.CarPhotos.RemoveRange(_context.CarPhotos.Where(p => carIds.Contains(p.CarId)));
+            _context.CarPriceOffers.RemoveRange(_context.CarPriceOffers.Where(o => carIds.Contains(o.CarId)));
+            _context.CarAvailabilityBlocks.RemoveRange(_context.CarAvailabilityBlocks.Where(b => carIds.Contains(b.CarId)));
+            _context.CarViews.RemoveRange(_context.CarViews.Where(v => carIds.Contains(v.CarId)));
+            _context.Favorites.RemoveRange(_context.Favorites.Where(f => carIds.Contains(f.CarId)));
+            await _context.SaveChangesAsync();
+
+            _context.Cars.RemoveRange(_context.Cars.Where(c => c.CompanyId == company.CompanyId));
+            await _context.SaveChangesAsync();
+
+            _context.CompanyVerifications.RemoveRange(_context.CompanyVerifications.Where(v => v.CompanyId == company.CompanyId));
+            _context.CompanySubscriptions.RemoveRange(_context.CompanySubscriptions.Where(s => s.CompanyId == company.CompanyId));
+            _context.AmenitySuggestions.RemoveRange(_context.AmenitySuggestions.Where(a => a.CompanyId == company.CompanyId));
+            await _context.SaveChangesAsync();
+
+            _context.Companies.Remove(company);
+            await _context.SaveChangesAsync();
+        }
+
+        var bookingIds = await _context.Bookings.Where(b => b.UserId == id).Select(b => b.BookingId).ToListAsync();
+        _context.Payments.RemoveRange(_context.Payments.Where(p => bookingIds.Contains(p.BookingId)));
+        _context.Reviews.RemoveRange(_context.Reviews.Where(r => bookingIds.Contains(r.BookingId) || r.UserId == id));
+        _context.LicenseViews.RemoveRange(_context.LicenseViews.Where(v => bookingIds.Contains(v.BookingId) || v.ViewedByUserId == id));
+        _context.Notifications.RemoveRange(_context.Notifications.Where(n => n.UserId == id || (n.BookingId != null && bookingIds.Contains(n.BookingId.Value))));
+        await _context.SaveChangesAsync();
+
+        _context.Bookings.RemoveRange(_context.Bookings.Where(b => b.UserId == id));
+        await _context.SaveChangesAsync();
+
+        _context.Favorites.RemoveRange(_context.Favorites.Where(f => f.UserId == id));
+        _context.LoginLogs.RemoveRange(_context.LoginLogs.Where(l => l.UserId == id));
+        _context.CarViews.RemoveRange(_context.CarViews.Where(v => v.UserId == id));
+        _context.WhatsappVerifications.RemoveRange(_context.WhatsappVerifications.Where(w => w.UserId == id));
+        _context.EmailVerifications.RemoveRange(_context.EmailVerifications.Where(e => e.UserId == id));
+        await _context.SaveChangesAsync();
+
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        return Ok(new { message = "Perdoruesi u fshi plotesisht." });
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> GetUsers()
