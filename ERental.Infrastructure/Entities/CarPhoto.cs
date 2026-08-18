@@ -17,5 +17,7 @@ public partial class CarPhoto
 
     public string? Kategoria { get; set; }
 
+    public short? ObjectPositionY { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 }

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ERental.Controllers;
 
 public record AddCarPhotoDto(int CarId, string UrlFotos, bool EshteKryesore, string? Kategoria = null);
+public record UpdatePhotoPositionDto(short ObjectPositionY);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -106,7 +107,24 @@ public class CarPhotosController : ControllerBase
         return Ok(new { message = "Foto kryesore u perditesua." });
     }
 
+    [HttpPut("{id}/position")]
+    [Authorize]
+    public async Task<IActionResult> UpdatePosition(int id, UpdatePhotoPositionDto dto)
+    {
+        var userId = GetUserId();
 
+        var photo = await _context.CarPhotos.Include(p => p.Car).ThenInclude(c => c.Company)
+            .FirstOrDefaultAsync(p => p.PhotoId == id);
+        if (photo == null) return NotFound();
+
+        if (photo.Car.Company.OwnerUserId != userId)
+            return Forbid();
+
+        photo.ObjectPositionY = Math.Clamp(dto.ObjectPositionY, (short)0, (short)100);
+        await _context.SaveChangesAsync();
+
+        return Ok(photo);
+    }
 
     [HttpPost("upload")]
     [Authorize]

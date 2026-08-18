@@ -250,6 +250,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Kategoria)
                 .HasMaxLength(30)
                 .HasColumnName("kategoria");
+            entity.Property(e => e.ObjectPositionY).HasColumnName("object_position_y");
 
             entity.HasOne(d => d.Car).WithMany(p => p.CarPhotos)
                 .HasForeignKey(d => d.CarId)
