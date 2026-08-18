@@ -93,11 +93,23 @@ public class AuthController : ControllerBase
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        if (user == null)
         {
             try
             {
-                _context.LoginLogs.Add(new LoginLog { Email = dto.Email, UserId = user?.UserId, IpAddress = ip, Sukses = false });
+                _context.LoginLogs.Add(new LoginLog { Email = dto.Email, UserId = null, IpAddress = ip, Sukses = false });
+                await _context.SaveChangesAsync();
+            }
+            catch { }
+
+            return Unauthorized("Ky account nuk ekziston. Ju lutem rregjistrohuni.");
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        {
+            try
+            {
+                _context.LoginLogs.Add(new LoginLog { Email = dto.Email, UserId = user.UserId, IpAddress = ip, Sukses = false });
                 await _context.SaveChangesAsync();
             }
             catch { }

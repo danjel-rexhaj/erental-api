@@ -77,6 +77,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.CmimiTotal)
                 .HasPrecision(10, 2)
                 .HasColumnName("cmimi_total");
+            entity.Property(e => e.CmimiSigurimit)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_sigurimit");
             entity.Property(e => e.DataFillimit).HasColumnName("data_fillimit");
             entity.Property(e => e.DataKrijimit)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -168,6 +171,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Pershkrimi).HasColumnName("pershkrimi");
             entity.Property(e => e.Kubatura).HasColumnName("kubatura");
             entity.Property(e => e.Cilindra).HasColumnName("cilindra");
+            entity.Property(e => e.MinimumDitesh).HasColumnName("minimum_ditesh");
             entity.Property(e => e.DataKrijimit)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
@@ -321,6 +325,10 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Iban)
                 .HasMaxLength(34)
                 .HasColumnName("iban");
+            entity.Property(e => e.MinimumDitesh).HasColumnName("minimum_ditesh");
+            entity.Property(e => e.CmimiSigurimit)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_sigurimit");
             entity.Ignore(e => e.AvgRating);
             entity.Ignore(e => e.ReviewCount);
             entity.Ignore(e => e.CarCount);

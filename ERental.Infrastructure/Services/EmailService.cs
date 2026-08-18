@@ -320,7 +320,7 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice, string dataFillimit, string dataPerfundimit, decimal serviceFee = 0)
+    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice, string dataFillimit, string dataPerfundimit, decimal serviceFee = 0, decimal insuranceFee = 0)
     {
         var titulli = perBiznesin ? "Ke marre nje pagese te re" : "Pagesa u krye me sukses";
         var pershkrimi = perBiznesin
@@ -331,10 +331,12 @@ public class EmailService : IEmailService
         if (DateOnly.TryParse(dataFillimit, out var df) && DateOnly.TryParse(dataPerfundimit, out var dp))
             dite = Math.Max(1, dp.DayNumber - df.DayNumber);
         var cmimiPerDite = Math.Round(totalPrice / dite, 2);
-        // amountPaid includes the flat service fee on top of the rental portion paid by card —
-        // strip it back out here so the cash-still-owed figure reflects only the rental price.
-        var rentalPaidByCard = amountPaid - serviceFee;
-        var mbetetCash = totalPrice - rentalPaidByCard;
+        // Insurance rides along with a full online payment but not with a deposit (collected cash
+        // at pickup instead), so it's folded into the grand total here rather than the rental item
+        // row, and the cash-still-owed math derives purely from what was actually captured online.
+        var grandTotal = totalPrice + insuranceFee;
+        var paidByCardExFee = amountPaid - serviceFee;
+        var mbetetCash = grandTotal - paidByCardExFee;
 
         var headerRow = $@"
             <tr>
@@ -348,6 +350,12 @@ public class EmailService : IEmailService
                 <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px;'>Qera — {makina}<br/><span style='color:#a3a3a3; font-size:11px;'>{FormatDate(dataFillimit)} → {FormatDate(dataPerfundimit)}</span></td>
                 <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px; text-align:right; white-space:nowrap;'>{dite} × {cmimiPerDite}€</td>
                 <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right; white-space:nowrap;'>{totalPrice}€</td>
+            </tr>";
+
+        var insuranceRow = insuranceFee <= 0 ? "" : $@"
+            <tr>
+                <td colspan='2' style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Sigurim i plotë</td>
+                <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; text-align:right; white-space:nowrap;'>{insuranceFee}€</td>
             </tr>";
 
         var feeRow = serviceFee <= 0 ? "" : $@"
@@ -380,6 +388,7 @@ public class EmailService : IEmailService
                 <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;'>
                     {headerRow}
                     {itemRow}
+                    {insuranceRow}
                     {feeRow}
                     {paidRow}
                     {cashRow}

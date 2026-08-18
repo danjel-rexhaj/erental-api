@@ -33,6 +33,10 @@ public partial class Booking
 
     public DateTime? DataKonfirmimit { get; set; }
 
+    // Snapshot of Company.CmimiSigurimit at booking time (not a live reference), so a later
+    // change to the business's insurance price never retroactively alters past bookings.
+    public decimal? CmimiSigurimit { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();

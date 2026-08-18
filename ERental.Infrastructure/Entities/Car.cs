@@ -41,6 +41,10 @@ public partial class Car
 
     public int? Cilindra { get; set; }
 
+    // Overrides Company.MinimumDitesh for this car specifically; null falls back to the
+    // company-wide default (itself null = no minimum, i.e. effectively 1 day).
+    public int? MinimumDitesh { get; set; }
+
     public DateTime? DataKrijimit { get; set; }
 
     public string[]? Amenities { get; set; }

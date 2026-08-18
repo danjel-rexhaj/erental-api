@@ -16,7 +16,7 @@ public record CreateCarDto(
     string Karburanti, string Transmisioni, string? Ngjyra, string Targa,
     string Kategoria, int NumriVendeve, bool Klimatizimi, decimal CmimiDites,
     string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null,
-    List<CarPriceOfferDto>? PriceOffers = null);
+    List<CarPriceOfferDto>? PriceOffers = null, int? MinimumDitesh = null);
 
 public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
 public record AdminUpdateCarDto(decimal? CmimiDites, string? Statusi);
@@ -178,6 +178,7 @@ public class CarsController : ControllerBase
             Kubatura = dto.Kubatura,
             Cilindra = dto.Cilindra,
             Amenities = dto.Amenities,
+            MinimumDitesh = dto.MinimumDitesh,
             Statusi = "active"
         };
 
@@ -225,6 +226,7 @@ public class CarsController : ControllerBase
         car.Kubatura = dto.Kubatura;
         car.Cilindra = dto.Cilindra;
         car.Amenities = dto.Amenities;
+        car.MinimumDitesh = dto.MinimumDitesh;
 
         _context.CarPriceOffers.RemoveRange(_context.CarPriceOffers.Where(o => o.CarId == id));
         var newOffers = (dto.PriceOffers ?? new List<CarPriceOfferDto>())

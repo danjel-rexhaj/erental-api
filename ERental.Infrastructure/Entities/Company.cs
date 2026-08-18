@@ -50,6 +50,14 @@ public partial class Company
 
     public int CarCount { get; set; }
 
+    // Default minimum rental days applied to every car under this company; a car's own
+    // Car.MinimumDitesh, when set, overrides this for that car specifically.
+    public int? MinimumDitesh { get; set; }
+
+    // Flat full-insurance add-on price this business offers per booking; null means this
+    // business doesn't offer it (the option stays hidden on the booking page).
+    public decimal? CmimiSigurimit { get; set; }
+
     // Bank details for commission payouts — never serialized by default (public endpoints like
     // GetCars/GetCompanies return this entity as-is); only exposed via explicit owner/admin
     // projections in CompaniesController.

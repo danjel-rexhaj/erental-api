@@ -10,7 +10,7 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? PaymentMethod = null, string? PaypalCaptureId = null);
+public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? PaymentMethod = null, string? PaypalCaptureId = null, bool DoSigurim = false);
 public record CancelBookingDto(string? Reason);
 
 [ApiController]
@@ -101,8 +101,20 @@ public class BookingsController : ControllerBase
             return BadRequest("Duhet zgjedhur nje menyre pagese (depozite ose e plote).");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
+        int minDiteRezervimi = car.MinimumDitesh ?? car.Company?.MinimumDitesh ?? 1;
+        if (diteRezervimi < minDiteRezervimi)
+            return BadRequest($"Minimumi i qerase per kete makine eshte {minDiteRezervimi} dite.");
+
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == diteRezervimi);
         decimal cmimiTotal = offer?.CmimiTotal ?? diteRezervimi * car.CmimiDites;
+
+        decimal sigurimi = 0;
+        if (dto.DoSigurim)
+        {
+            if (car.Company?.CmimiSigurimit == null)
+                return BadRequest("Ky biznes nuk ofron sigurim te plote.");
+            sigurimi = car.Company.CmimiSigurimit.Value;
+        }
 
         // The capture already happened via POST /api/Payments/paypal/capture — re-verify it here
         // against PayPal directly rather than trusting the client's claimed amount/method.
@@ -116,7 +128,9 @@ public class BookingsController : ControllerBase
             if (!capture.Success)
                 return BadRequest("Pagesa nuk u konfirmua nga PayPal.");
 
-            var pritshme = (paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal) + OnlineServiceFee;
+            // Insurance only rides along with a full online payment, not a deposit -- see the same
+            // note in PaymentsController.
+            var pritshme = (paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal + sigurimi) + OnlineServiceFee;
             if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 
@@ -138,6 +152,7 @@ public class BookingsController : ControllerBase
             DataFillimit = dto.DataFillimit,
             DataPerfundimit = dto.DataPerfundimit,
             CmimiTotal = cmimiTotal,
+            CmimiSigurimit = sigurimi > 0 ? sigurimi : null,
             Statusi = "pending",
             PaymentMethod = paymentMethod
         };
@@ -146,14 +161,15 @@ public class BookingsController : ControllerBase
         await _context.SaveChangesAsync();
 
         {
-            // Businesses keep the full rental price online too — the flat OnlineServiceFee is a
-            // platform fee added on top for the client, not a cut withheld from the business.
+            // Businesses keep the full rental price (and insurance, if selected) online too — the
+            // flat OnlineServiceFee is a platform fee added on top for the client, not a cut
+            // withheld from the business.
             _context.Payments.Add(new Payment
             {
                 BookingId = booking.BookingId,
-                ShumaTotale = cmimiTotal,
+                ShumaTotale = cmimiTotal + sigurimi,
                 Komisioni = OnlineServiceFee,
-                ShumaBiznesit = cmimiTotal,
+                ShumaBiznesit = cmimiTotal + sigurimi,
                 ShumaPaguarOnline = shumaPaguarOnline,
                 MetodaPageses = paymentMethod,
                 PaypalCaptureId = dto.PaypalCaptureId,
@@ -179,9 +195,9 @@ public class BookingsController : ControllerBase
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
-                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee);
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
                 if (car.Company.Email != null)
-                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee);
+                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }
@@ -619,6 +635,7 @@ public class BookingsController : ControllerBase
                 b.DataFillimit,
                 b.DataPerfundimit,
                 b.CmimiTotal,
+                b.CmimiSigurimit,
                 b.Statusi,
                 b.DataKrijimit,
                 b.ArsyejaRefuzimit,

@@ -11,7 +11,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record UpdateLocationDto(double Latitude, double Longitude);
-public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null);
+public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null, int? MinimumDitesh = null, decimal? CmimiSigurimit = null);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
@@ -41,7 +41,7 @@ public class CompaniesController : ControllerBase
         c.CompanyId, c.Emri, c.Email, c.Telefoni, c.Adresa, c.Qyteti, c.Nipt,
         c.EshteVerifikuar, c.DataVerifikimit, c.CommissionRate, c.DataRegjistrimit,
         c.BillingModel, c.Statusi, c.OwnerUserId, c.LogoUrl, c.Latitude, c.Longitude,
-        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine
+        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine, c.MinimumDitesh, c.CmimiSigurimit
     };
 
     private async Task NotifyAsync(int userId, string title, string message, string? target = null)
@@ -251,6 +251,8 @@ public class CompaniesController : ControllerBase
             company.Iban = string.IsNullOrWhiteSpace(dto.Iban) ? null : dto.Iban.Trim().Replace(" ", "").ToUpperInvariant();
         if (dto.OfronDergimMakine.HasValue)
             company.OfronDergimMakine = dto.OfronDergimMakine.Value;
+        company.MinimumDitesh = dto.MinimumDitesh;
+        company.CmimiSigurimit = dto.CmimiSigurimit;
         await _context.SaveChangesAsync();
 
         return Ok(ProjectCompanyOwner(company));

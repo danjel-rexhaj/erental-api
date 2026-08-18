@@ -7,8 +7,8 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record CapturePaymentDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string PaypalOrderId);
-public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string? ReturnUrl = null, string? CancelUrl = null);
+public record CapturePaymentDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string PaypalOrderId, bool DoSigurim = false);
+public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string? ReturnUrl = null, string? CancelUrl = null, bool DoSigurim = false);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -43,16 +43,31 @@ public class PaymentsController : ControllerBase
         if (user == null || string.IsNullOrWhiteSpace(user.PatentaFotoPara) || string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa))
             return BadRequest("Duhet te shtosh foton e patentes (para dhe mbrapa) ne profilin tend para se te rezervosh.");
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
 
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
+        int minDite = car.MinimumDitesh ?? car.Company?.MinimumDitesh ?? 1;
+        if (dite < minDite)
+            return BadRequest($"Minimumi i qerase per kete makine eshte {minDite} dite.");
+
+        decimal sigurimi = 0;
+        if (dto.DoSigurim)
+        {
+            if (car.Company?.CmimiSigurimit == null)
+                return BadRequest("Ky biznes nuk ofron sigurim te plote.");
+            sigurimi = car.Company.CmimiSigurimit.Value;
+        }
+
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
         decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
-        decimal shuma = (dto.Method == "deposit" ? car.CmimiDites : totali) + OnlineServiceFee;
+        // Insurance only rides along with a full online payment -- with a deposit, it's collected
+        // in cash at pickup alongside the rest of the rental, same as the un-deposited rental balance,
+        // so a no-show only costs the client the (non-refundable) deposit, not the insurance too.
+        decimal shuma = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
 
         var result = await _payPal.CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
@@ -71,16 +86,28 @@ public class PaymentsController : ControllerBase
         if (dto.Method != "deposit" && dto.Method != "full")
             return BadRequest("Menyre pagese e panjohur.");
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
 
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
+        int minDite = car.MinimumDitesh ?? car.Company?.MinimumDitesh ?? 1;
+        if (dite < minDite)
+            return BadRequest($"Minimumi i qerase per kete makine eshte {minDite} dite.");
+
+        decimal sigurimi = 0;
+        if (dto.DoSigurim)
+        {
+            if (car.Company?.CmimiSigurimit == null)
+                return BadRequest("Ky biznes nuk ofron sigurim te plote.");
+            sigurimi = car.Company.CmimiSigurimit.Value;
+        }
+
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
         decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
-        decimal pritshme = (dto.Method == "deposit" ? car.CmimiDites : totali) + OnlineServiceFee;
+        decimal pritshme = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
 
         var result = await _payPal.CaptureOrderAsync(dto.PaypalOrderId);
         if (!result.Success)
