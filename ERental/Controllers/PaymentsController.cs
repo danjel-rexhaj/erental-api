@@ -17,6 +17,10 @@ public class PaymentsController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IPayPalService _payPal;
 
+    // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
+    // price. Businesses keep the full rental price — this fee is not withheld from them.
+    private const decimal OnlineServiceFee = 10m;
+
     public PaymentsController(ERentalDbContext context, IPayPalService payPal)
     {
         _context = context;
@@ -48,7 +52,7 @@ public class PaymentsController : ControllerBase
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
         decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
-        decimal shuma = dto.Method == "deposit" ? car.CmimiDites : totali;
+        decimal shuma = (dto.Method == "deposit" ? car.CmimiDites : totali) + OnlineServiceFee;
 
         var result = await _payPal.CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
@@ -76,7 +80,7 @@ public class PaymentsController : ControllerBase
         int dite = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
         decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
-        decimal pritshme = dto.Method == "deposit" ? car.CmimiDites : totali;
+        decimal pritshme = (dto.Method == "deposit" ? car.CmimiDites : totali) + OnlineServiceFee;
 
         var result = await _payPal.CaptureOrderAsync(dto.PaypalOrderId);
         if (!result.Success)

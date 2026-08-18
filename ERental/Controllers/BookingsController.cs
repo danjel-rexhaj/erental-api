@@ -23,6 +23,10 @@ public class BookingsController : ControllerBase
     private readonly IPayPalService _payPal;
     private readonly IPrivateFileService _privateFileService;
 
+    // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
+    // price. Businesses keep the full rental price — this fee is not withheld from them.
+    private const decimal OnlineServiceFee = 10m;
+
     public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService)
     {
         _context = context;
@@ -112,7 +116,7 @@ public class BookingsController : ControllerBase
             if (!capture.Success)
                 return BadRequest("Pagesa nuk u konfirmua nga PayPal.");
 
-            var pritshme = paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal;
+            var pritshme = (paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal) + OnlineServiceFee;
             if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 
@@ -142,14 +146,14 @@ public class BookingsController : ControllerBase
         await _context.SaveChangesAsync();
 
         {
-            var company = car.Company;
-            decimal komisioni = company.BillingModel == "commission" ? cmimiTotal * (company.CommissionRate ?? 0) / 100 : 0;
+            // Businesses keep the full rental price online too — the flat OnlineServiceFee is a
+            // platform fee added on top for the client, not a cut withheld from the business.
             _context.Payments.Add(new Payment
             {
                 BookingId = booking.BookingId,
                 ShumaTotale = cmimiTotal,
-                Komisioni = komisioni,
-                ShumaBiznesit = cmimiTotal - komisioni,
+                Komisioni = OnlineServiceFee,
+                ShumaBiznesit = cmimiTotal,
                 ShumaPaguarOnline = shumaPaguarOnline,
                 MetodaPageses = paymentMethod,
                 PaypalCaptureId = dto.PaypalCaptureId,
@@ -175,9 +179,9 @@ public class BookingsController : ControllerBase
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
-                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString());
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee);
                 if (car.Company.Email != null)
-                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString());
+                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }
@@ -267,19 +271,12 @@ public class BookingsController : ControllerBase
             }
 
 
-            // Llogarit pagesen
+            // Llogarit pagesen — cash bookings incur no platform fee and no commission is
+            // withheld; the business keeps the full rental price.
             var company = booking.Car.Company;
 
             decimal komisioni = 0;
-
-            if (company.BillingModel == "commission")
-            {
-                komisioni = booking.CmimiTotal *
-                            (company.CommissionRate ?? 0) / 100;
-            }
-
-
-            decimal shumaBiznesit = booking.CmimiTotal - komisioni;
+            decimal shumaBiznesit = booking.CmimiTotal;
 
 
             // Kontrollo nese ekziston payment

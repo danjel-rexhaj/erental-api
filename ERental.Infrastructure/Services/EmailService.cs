@@ -320,7 +320,7 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice, string dataFillimit, string dataPerfundimit)
+    public async Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice, string dataFillimit, string dataPerfundimit, decimal serviceFee = 0)
     {
         var titulli = perBiznesin ? "Ke marre nje pagese te re" : "Pagesa u krye me sukses";
         var pershkrimi = perBiznesin
@@ -331,7 +331,10 @@ public class EmailService : IEmailService
         if (DateOnly.TryParse(dataFillimit, out var df) && DateOnly.TryParse(dataPerfundimit, out var dp))
             dite = Math.Max(1, dp.DayNumber - df.DayNumber);
         var cmimiPerDite = Math.Round(totalPrice / dite, 2);
-        var mbetetCash = totalPrice - amountPaid;
+        // amountPaid includes the flat service fee on top of the rental portion paid by card —
+        // strip it back out here so the cash-still-owed figure reflects only the rental price.
+        var rentalPaidByCard = amountPaid - serviceFee;
+        var mbetetCash = totalPrice - rentalPaidByCard;
 
         var headerRow = $@"
             <tr>
@@ -347,9 +350,15 @@ public class EmailService : IEmailService
                 <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; font-weight:700; text-align:right; white-space:nowrap;'>{totalPrice}€</td>
             </tr>";
 
+        var feeRow = serviceFee <= 0 ? "" : $@"
+            <tr>
+                <td colspan='2' style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Tarifë shërbimi (rezervim online)</td>
+                <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#111111; font-size:13px; text-align:right; white-space:nowrap;'>{serviceFee}€</td>
+            </tr>";
+
         var paidRow = $@"
             <tr>
-                <td colspan='2' style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Paguar me kartë ({(eshtePagesePlote ? "pagesë e plotë" : "depozitë")})</td>
+                <td colspan='2' style='padding:12px 0; border-top:1px solid #ebebeb; color:#717171; font-size:13px;'>Paguar me kartë ({(eshtePagesePlote ? "pagesë e plotë" : "depozitë")}{(serviceFee > 0 ? " + tarifë" : "")})</td>
                 <td style='padding:12px 0; border-top:1px solid #ebebeb; color:#059669; font-size:14px; font-weight:800; text-align:right; white-space:nowrap;'>{amountPaid}€</td>
             </tr>";
 
@@ -371,6 +380,7 @@ public class EmailService : IEmailService
                 <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;'>
                     {headerRow}
                     {itemRow}
+                    {feeRow}
                     {paidRow}
                     {cashRow}
                 </table>
