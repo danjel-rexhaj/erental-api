@@ -387,6 +387,58 @@ public class CompaniesController : ControllerBase
         return Ok(new { message = "Kerkesa u refuzua dhe biznesi u fshi." });
     }
 
+    // Unlike Reject (which only handles a still-pending, car-less company), this permanently wipes
+    // a company and everything under it -- cars, bookings, payments, reviews, etc. -- regardless of
+    // status. Admin-only, for clearing out test/junk data. Deletion is staged children-first, each
+    // stage saved before the next, since several FKs here are RESTRICT at the DB level (no cascade)
+    // and a couple of relationships (Notification.BookingId) aren't modeled in EF at all, so we
+    // can't rely on EF's automatic dependency-graph ordering across a single SaveChanges call.
+    [HttpDelete("{id}/force")]
+    [Authorize]
+    public async Task<IActionResult> ForceDeleteCompany(int id)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == id);
+        if (company == null) return NotFound();
+
+        var carIds = await _context.Cars.Where(c => c.CompanyId == id).Select(c => c.CarId).ToListAsync();
+        var bookingIds = await _context.Bookings.Where(b => carIds.Contains(b.CarId)).Select(b => b.BookingId).ToListAsync();
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        _context.Payments.RemoveRange(_context.Payments.Where(p => bookingIds.Contains(p.BookingId)));
+        _context.Reviews.RemoveRange(_context.Reviews.Where(r => bookingIds.Contains(r.BookingId) || r.CompanyId == id));
+        _context.LicenseViews.RemoveRange(_context.LicenseViews.Where(v => bookingIds.Contains(v.BookingId)));
+        _context.Notifications.RemoveRange(_context.Notifications.Where(n => n.BookingId != null && bookingIds.Contains(n.BookingId.Value)));
+        await _context.SaveChangesAsync();
+
+        _context.Bookings.RemoveRange(_context.Bookings.Where(b => carIds.Contains(b.CarId)));
+        await _context.SaveChangesAsync();
+
+        _context.CarPhotos.RemoveRange(_context.CarPhotos.Where(p => carIds.Contains(p.CarId)));
+        _context.CarPriceOffers.RemoveRange(_context.CarPriceOffers.Where(o => carIds.Contains(o.CarId)));
+        _context.CarAvailabilityBlocks.RemoveRange(_context.CarAvailabilityBlocks.Where(b => carIds.Contains(b.CarId)));
+        _context.CarViews.RemoveRange(_context.CarViews.Where(v => carIds.Contains(v.CarId)));
+        _context.Favorites.RemoveRange(_context.Favorites.Where(f => carIds.Contains(f.CarId)));
+        await _context.SaveChangesAsync();
+
+        _context.Cars.RemoveRange(_context.Cars.Where(c => c.CompanyId == id));
+        await _context.SaveChangesAsync();
+
+        _context.CompanyVerifications.RemoveRange(_context.CompanyVerifications.Where(v => v.CompanyId == id));
+        _context.CompanySubscriptions.RemoveRange(_context.CompanySubscriptions.Where(s => s.CompanyId == id));
+        _context.AmenitySuggestions.RemoveRange(_context.AmenitySuggestions.Where(a => a.CompanyId == id));
+        await _context.SaveChangesAsync();
+
+        _context.Companies.Remove(company);
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        return Ok(new { message = "Biznesi u fshi plotesisht." });
+    }
+
     [HttpGet("pending")]
     [Authorize]
     public async Task<IActionResult> GetPendingCompanies()
