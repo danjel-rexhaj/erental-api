@@ -1,7 +1,10 @@
 using ERental.Application.Interfaces;
+using ERental.Hubs;
+using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -9,6 +12,7 @@ namespace ERental.Controllers;
 
 public record UpdateMeDto(string Emri, string Mbiemri, string? Telefoni, bool HasWhatsapp);
 public record AdminUpdateUserDto(string Emri, string Mbiemri, string? Telefoni, string Email);
+public record RejectLicenseDto(string? Reason);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -17,14 +21,35 @@ public class UsersController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IFileUploadService _fileUploadService;
     private readonly IPrivateFileService _privateFileService;
-    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService, IPrivateFileService privateFileService)
+    private readonly IEmailService _emailService;
+    private readonly IHubContext<NotificationHub> _hub;
+    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService, IPrivateFileService privateFileService, IEmailService emailService, IHubContext<NotificationHub> hub)
     {
         _context = context;
         _fileUploadService = fileUploadService;
         _privateFileService = privateFileService;
+        _emailService = emailService;
+        _hub = hub;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private async Task NotifyAsync(int userId, string title, string message, string? target = null)
+    {
+        var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, Target = target };
+        _context.Notifications.Add(notif);
+        await _context.SaveChangesAsync();
+
+        await _hub.Clients.Group(userId.ToString()).SendAsync("notification", new
+        {
+            id = notif.Id,
+            title = notif.Title,
+            message = notif.Message,
+            createdAt = notif.DataKrijimit,
+            bookingId = notif.BookingId,
+            target = notif.Target
+        });
+    }
 
     [HttpGet("me")]
     [Authorize]
@@ -49,6 +74,7 @@ public class UsersController : ControllerBase
             user.DataRegjistrimit,
             HasLicensePara = !string.IsNullOrWhiteSpace(user.PatentaFotoPara),
             HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa),
+            user.PatentaStatus,
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi
         });
@@ -81,13 +107,112 @@ public class UsersController : ControllerBase
             user.PatentaFotoMbrapa = await _privateFileService.UploadAsync(stream, mbrapa.FileName, mbrapa.ContentType, $"users/{userId}/patenta");
         }
 
+        bool nowComplete = !string.IsNullOrWhiteSpace(user.PatentaFotoPara) && !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa);
+        // A re-upload (e.g. after a rejection) also goes back to pending -- new photos need a
+        // fresh review, the old verdict no longer applies to them.
+        if (nowComplete) user.PatentaStatus = "pending";
+
         await _context.SaveChangesAsync();
+
+        if (nowComplete)
+        {
+            try { await NotifyAsync(1, "Verifikim patente", $"{user.Emri} {user.Mbiemri} ngarkoi fotot e patentes per verifikim.", "admin_license_verification"); }
+            catch (Exception ex) { Console.WriteLine($"License verification admin notify error: {ex.Message}"); }
+
+            try { await _emailService.SendAdminLicenseVerificationRequestAsync("info@erental.store", $"{user.Emri} {user.Mbiemri}"); }
+            catch (Exception ex) { Console.WriteLine($"License verification admin email error: {ex.Message}"); }
+        }
 
         return Ok(new
         {
             HasLicensePara = !string.IsNullOrWhiteSpace(user.PatentaFotoPara),
-            HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa)
+            HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa),
+            user.PatentaStatus
         });
+    }
+
+    // Admin-only view of a specific user's license photo, mirroring GetMyLicensePhoto -- needed so
+    // an admin can actually see what they're approving/rejecting without the file ever becoming a
+    // shareable public link.
+    [HttpGet("{id}/license/{side}")]
+    [Authorize]
+    public async Task<IActionResult> GetUserLicensePhoto(int id, string side)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
+
+        var key = side == "para" ? user.PatentaFotoPara : side == "mbrapa" ? user.PatentaFotoMbrapa : null;
+        if (string.IsNullOrWhiteSpace(key)) return NotFound();
+
+        try
+        {
+            var (stream, contentType) = await _privateFileService.DownloadAsync(key);
+            return File(stream, contentType ?? "image/jpeg");
+        }
+        catch (Amazon.S3.AmazonS3Exception)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpGet("license/pending")]
+    [Authorize]
+    public async Task<IActionResult> GetPendingLicenses()
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var pending = await _context.Users
+            .Where(u => u.PatentaStatus == "pending")
+            .OrderBy(u => u.UserId)
+            .Select(u => new { u.UserId, u.Emri, u.Mbiemri, u.Email, u.Telefoni })
+            .ToListAsync();
+
+        return Ok(pending);
+    }
+
+    [HttpPut("{id}/license/verify")]
+    [Authorize]
+    public async Task<IActionResult> VerifyLicense(int id)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
+
+        user.PatentaStatus = "verified";
+        await _context.SaveChangesAsync();
+
+        try { await NotifyAsync(id, "Patenta u verifikua", "Fotot e patentes tende u verifikuan.", "license_verified"); }
+        catch (Exception ex) { Console.WriteLine($"License verified notify error: {ex.Message}"); }
+
+        try { await _emailService.SendLicenseVerifiedAsync(user.Email, user.Emri); }
+        catch (Exception ex) { Console.WriteLine($"License verified email error: {ex.Message}"); }
+
+        return Ok(new { verified = true });
+    }
+
+    [HttpPut("{id}/license/reject")]
+    [Authorize]
+    public async Task<IActionResult> RejectLicense(int id, RejectLicenseDto dto)
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound();
+
+        user.PatentaStatus = "rejected";
+        await _context.SaveChangesAsync();
+
+        var reasonText = string.IsNullOrWhiteSpace(dto.Reason) ? "" : $" Arsyeja: {dto.Reason}";
+        try { await NotifyAsync(id, "Patenta u refuzua", $"Fotot e patentes tende u refuzuan.{reasonText} Ngarko foto te reja per te rifilluar verifikimin.", "license_rejected"); }
+        catch (Exception ex) { Console.WriteLine($"License rejected notify error: {ex.Message}"); }
+
+        try { await _emailService.SendLicenseRejectedAsync(user.Email, user.Emri, dto.Reason); }
+        catch (Exception ex) { Console.WriteLine($"License rejected email error: {ex.Message}"); }
+
+        return Ok(new { rejected = true });
     }
 
     [HttpGet("me/license/{side}")]

@@ -26,6 +26,9 @@ public interface IEmailService
     Task SendContactMessageAsync(string emriDerguesi, string emailDerguesi, string subjekti, string mesazhi);
     Task SendAdminVerificationRequestAsync(string adminEmail, string companyName, int companyId);
     Task SendAdminWhatsappVerificationRequestAsync(string adminEmail, string userName, string? userPhone);
+    Task SendAdminLicenseVerificationRequestAsync(string adminEmail, string userName);
+    Task SendLicenseVerifiedAsync(string toEmail, string emri);
+    Task SendLicenseRejectedAsync(string toEmail, string emri, string? reason);
     Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName);
     Task SendCompanyRejectedAsync(string toEmail, string companyName, string reason);
     Task SendWelcomeAsync(string toEmail, string emri);

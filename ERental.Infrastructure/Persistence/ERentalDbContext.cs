@@ -20,6 +20,8 @@ public partial class ERentalDbContext : DbContext
 
     public virtual DbSet<AmenitySuggestion> AmenitySuggestions { get; set; }
 
+    public virtual DbSet<CarSuggestion> CarSuggestions { get; set; }
+
     public virtual DbSet<Car> Cars { get; set; }
 
     public virtual DbSet<CarAvailabilityBlock> CarAvailabilityBlocks { get; set; }
@@ -363,6 +365,37 @@ public partial class ERentalDbContext : DbContext
                 .HasConstraintName("amenity_suggestions_company_id_fkey");
         });
 
+        modelBuilder.Entity<CarSuggestion>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("car_suggestions_pkey");
+
+            entity.ToTable("car_suggestions");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CompanyId).HasColumnName("company_id");
+            entity.Property(e => e.Type)
+                .HasMaxLength(10)
+                .HasColumnName("type");
+            entity.Property(e => e.Marka)
+                .HasMaxLength(50)
+                .HasColumnName("marka");
+            entity.Property(e => e.SuggestedValue)
+                .HasMaxLength(50)
+                .HasColumnName("suggested_value");
+            entity.Property(e => e.Statusi)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'pending'::character varying")
+                .HasColumnName("statusi");
+            entity.Property(e => e.DataKrijimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_krijimit");
+
+            entity.HasOne(d => d.Company).WithMany()
+                .HasForeignKey(d => d.CompanyId)
+                .HasConstraintName("car_suggestions_company_id_fkey");
+        });
+
         modelBuilder.Entity<CompanySubscription>(entity =>
         {
             entity.HasKey(e => e.SubscriptionId).HasName("company_subscriptions_pkey");
@@ -627,6 +660,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.FotoProfili).HasColumnName("foto_profili");
             entity.Property(e => e.PatentaFotoPara).HasColumnName("patenta_foto_para");
             entity.Property(e => e.PatentaFotoMbrapa).HasColumnName("patenta_foto_mbrapa");
+            entity.Property(e => e.PatentaStatus)
+                .HasMaxLength(20)
+                .HasColumnName("patenta_status");
             entity.Property(e => e.Mbiemri)
                 .HasMaxLength(50)
                 .HasColumnName("mbiemri");

@@ -31,6 +31,10 @@ public partial class User
 
     public string? PatentaFotoMbrapa { get; set; }
 
+    // Set automatically once both license photos are uploaded ("pending"), then moved to
+    // "verified"/"rejected" by admin review. Null means no photos, or not both, uploaded yet.
+    public string? PatentaStatus { get; set; }
+
     public string? Kombesia { get; set; }
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();

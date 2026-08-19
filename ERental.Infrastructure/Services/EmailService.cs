@@ -500,6 +500,55 @@ public class EmailService : IEmailService
         await SendAsync(msg);
     }
 
+    public async Task SendAdminLicenseVerificationRequestAsync(string adminEmail, string userName)
+    {
+        var body = $@"
+            <h1 style='color:#111111; font-size:20px; font-weight:700; margin:0 0 16px 0;'>Kërkesë verifikimi patente</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                <strong>{userName}</strong> ngarkoi fotot e patentës (para dhe mbrapa) dhe pret shqyrtim.
+            </p>
+            <a href='https://erental.store/biznesi?tab=patenta' style='display:inline-block; background:#111111; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:12px 20px; border-radius:8px;'>
+                Shqyrto kërkesën
+            </a>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(adminEmail), $"Kërkesë verifikimi patente — {userName}", "", Wrap(body, $"{userName} pret verifikim patente"));
+        await SendAsync(msg);
+    }
+
+    public async Task SendLicenseVerifiedAsync(string toEmail, string emri)
+    {
+        var body = $@"
+            {CheckBadge()}
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Patenta jote u verifikua</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Përshëndetje {emri}, fotot e patentës tënde u shqyrtuan dhe u verifikuan nga ekipi i ERental.
+            </p>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Patenta jote u verifikua — ERental", "", Wrap(body, "Patenta jote u verifikua"));
+        await SendAsync(msg);
+    }
+
+    public async Task SendLicenseRejectedAsync(string toEmail, string emri, string? reason)
+    {
+        var reasonBlock = string.IsNullOrWhiteSpace(reason) ? "" : $@"
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 24px 0;'>
+                <strong>Arsyeja:</strong> {reason}
+            </p>";
+
+        var body = $@"
+            <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 16px 0;'>Fotot e patentës nuk u aprovuan</h1>
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0 0 16px 0;'>
+                Përshëndetje {emri}, fotot e patentës tënde u shqyrtuan dhe nuk u aprovuan.
+            </p>
+            {reasonBlock}
+            <p style='color:#484848; font-size:15px; line-height:1.7; margin:0;'>
+                Ngarko foto të reja në profilin tënd për të rifilluar verifikimin.
+            </p>";
+
+        var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Fotot e patentës nuk u aprovuan — ERental", "", Wrap(body, "Ngarko foto te reja"));
+        await SendAsync(msg);
+    }
+
     public async Task SendCompanyVerifiedAsync(string toEmail, string emri, string companyName)
     {
         var body = $@"
