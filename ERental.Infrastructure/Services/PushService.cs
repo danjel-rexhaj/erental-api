@@ -44,7 +44,11 @@ public class PushService : IPushService
         var subs = await _context.PushSubscriptions.Where(s => s.UserId == userId).ToListAsync();
         if (subs.Count == 0) return;
 
-        var payload = JsonSerializer.Serialize(new { title, body = message, url = TargetToUrl(target) });
+        // The OS notification always shows "ERental" as the title (like any other app) -- the
+        // per-event title (e.g. "WhatsApp u verifikua") is only used for the in-app bell, which has
+        // room for a heading; here it's redundant with the message body, so it's dropped rather
+        // than shown as "Title: message". `title` stays a parameter for that in-app-bell purpose.
+        var payload = JsonSerializer.Serialize(new { title = "ERental", body = message, url = TargetToUrl(target) });
         var toRemove = new List<int>();
 
         foreach (var sub in subs)
