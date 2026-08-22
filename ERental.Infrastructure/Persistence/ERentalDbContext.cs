@@ -52,6 +52,7 @@ public partial class ERentalDbContext : DbContext
     public virtual DbSet<Favorite> Favorites { get; set; }
     public virtual DbSet<LoginLog> LoginLogs { get; set; }
     public virtual DbSet<LicenseView> LicenseViews { get; set; }
+    public virtual DbSet<PushSubscription> PushSubscriptions { get; set; }
 
     // At runtime the app always configures this via appsettings.json / env vars in Program.cs (AddDbContext).
     // This fallback only kicks in for design-time tooling (e.g. `dotnet ef`) run directly against this class,
@@ -773,6 +774,28 @@ public partial class ERentalDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("data_hyrjes");
+        });
+
+        modelBuilder.Entity<PushSubscription>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("push_subscriptions_pkey");
+            entity.ToTable("push_subscriptions");
+            entity.HasIndex(e => e.Endpoint, "push_subscriptions_endpoint_key").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Endpoint).HasColumnName("endpoint");
+            entity.Property(e => e.P256dh).HasColumnName("p256dh");
+            entity.Property(e => e.Auth).HasColumnName("auth");
+            entity.Property(e => e.UserAgent).HasColumnName("user_agent");
+            entity.Property(e => e.DataKrijimit)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("data_krijimit");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("push_subscriptions_user_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

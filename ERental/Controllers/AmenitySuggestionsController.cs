@@ -1,3 +1,4 @@
+using ERental.Application.Interfaces;
 using ERental.Hubs;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
@@ -17,11 +18,13 @@ public class AmenitySuggestionsController : ControllerBase
 {
     private readonly ERentalDbContext _context;
     private readonly IHubContext<NotificationHub> _hub;
+    private readonly IPushService _push;
 
-    public AmenitySuggestionsController(ERentalDbContext context, IHubContext<NotificationHub> hub)
+    public AmenitySuggestionsController(ERentalDbContext context, IHubContext<NotificationHub> hub, IPushService push)
     {
         _context = context;
         _hub = hub;
+        _push = push;
     }
 
     private int GetUserId() =>
@@ -42,6 +45,8 @@ public class AmenitySuggestionsController : ControllerBase
             bookingId = notif.BookingId,
             target = notif.Target
         });
+
+        try { await _push.SendToUserAsync(userId, title, message, target); } catch { }
     }
 
     [HttpPost]

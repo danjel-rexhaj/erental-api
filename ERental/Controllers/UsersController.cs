@@ -23,13 +23,15 @@ public class UsersController : ControllerBase
     private readonly IPrivateFileService _privateFileService;
     private readonly IEmailService _emailService;
     private readonly IHubContext<NotificationHub> _hub;
-    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService, IPrivateFileService privateFileService, IEmailService emailService, IHubContext<NotificationHub> hub)
+    private readonly IPushService _push;
+    public UsersController(ERentalDbContext context, IFileUploadService fileUploadService, IPrivateFileService privateFileService, IEmailService emailService, IHubContext<NotificationHub> hub, IPushService push)
     {
         _context = context;
         _fileUploadService = fileUploadService;
         _privateFileService = privateFileService;
         _emailService = emailService;
         _hub = hub;
+        _push = push;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -49,6 +51,8 @@ public class UsersController : ControllerBase
             bookingId = notif.BookingId,
             target = notif.Target
         });
+
+        try { await _push.SendToUserAsync(userId, title, message, target); } catch { }
     }
 
     [HttpGet("me")]

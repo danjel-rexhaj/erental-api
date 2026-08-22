@@ -22,18 +22,20 @@ public class BookingsController : ControllerBase
     private readonly IHubContext<NotificationHub> _hub;
     private readonly IPayPalService _payPal;
     private readonly IPrivateFileService _privateFileService;
+    private readonly IPushService _push;
 
     // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
     // price. Businesses keep the full rental price — this fee is not withheld from them.
     private const decimal OnlineServiceFee = 10m;
 
-    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService)
+    public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService, IPushService push)
     {
         _context = context;
         _emailService = emailService;
         _hub = hub;
         _payPal = payPal;
         _privateFileService = privateFileService;
+        _push = push;
     }
 
     private int GetUserId() =>
@@ -57,6 +59,8 @@ public class BookingsController : ControllerBase
             bookingId = notif.BookingId,
             target = notif.Target
         });
+
+        try { await _push.SendToUserAsync(userId, title, message, target); } catch { }
     }
 
     // Cancelled bookings are kept visible for 24h (so both sides can still see why/what happened),

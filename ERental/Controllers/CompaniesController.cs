@@ -22,13 +22,15 @@ public class CompaniesController : ControllerBase
     private readonly IFileUploadService _fileUploadService;
     private readonly IEmailService _emailService;
     private readonly IHubContext<NotificationHub> _hub;
+    private readonly IPushService _push;
 
-    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService, IEmailService emailService, IHubContext<NotificationHub> hub)
+    public CompaniesController(ERentalDbContext context, IFileUploadService fileUploadService, IEmailService emailService, IHubContext<NotificationHub> hub, IPushService push)
     {
         _context = context;
         _fileUploadService = fileUploadService;
         _emailService = emailService;
         _hub = hub;
+        _push = push;
     }
 
     private int GetUserId() =>
@@ -59,6 +61,8 @@ public class CompaniesController : ControllerBase
             bookingId = notif.BookingId,
             target = notif.Target
         });
+
+        try { await _push.SendToUserAsync(userId, title, message, target); } catch { }
     }
 
     [HttpPost("register")]

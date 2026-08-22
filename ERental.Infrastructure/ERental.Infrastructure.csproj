@@ -19,6 +19,7 @@
     <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="SendGrid" Version="9.29.3" />
     <PackageReference Include="AWSSDK.S3" Version="4.0.100.3" />
+    <PackageReference Include="WebPush" Version="1.0.13" />
   </ItemGroup>
 
   <ItemGroup>

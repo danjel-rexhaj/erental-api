@@ -14,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IPrivateFileService, PrivateFileService>();
+builder.Services.AddScoped<IPushService, PushService>();
 builder.Services.AddHttpClient<IPayPalService, PayPalService>();
 builder.Services.AddHostedService<BookingCompletionService>();
 
