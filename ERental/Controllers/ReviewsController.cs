@@ -49,6 +49,35 @@ public class ReviewsController : ControllerBase
         return Ok(review);
     }
 
+    // Cross-company feed for the homepage "recent reviews" section -- only reviews that actually
+    // have both a rating and real comment text (a bare star rating with no words reads as filler
+    // there), from currently-verified companies.
+    [HttpGet("recent")]
+    public async Task<IActionResult> GetRecent(int take = 10)
+    {
+        take = Math.Clamp(take, 1, 20);
+
+        var reviews = await _context.Reviews
+            .Include(r => r.Company)
+            .Include(r => r.User)
+            .Where(r => r.Rating != null && r.Koment != null && r.Koment != "" && r.Company.EshteVerifikuar == true)
+            .OrderByDescending(r => r.Data)
+            .Take(take)
+            .Select(r => new
+            {
+                r.ReviewId,
+                r.Rating,
+                r.Koment,
+                r.Data,
+                CompanyEmri = r.Company.Emri,
+                Emri = r.User.Emri,
+                MbiemriInicial = r.User.Mbiemri.Substring(0, 1)
+            })
+            .ToListAsync();
+
+        return Ok(reviews);
+    }
+
     [HttpGet("company/{companyId}")]
     public async Task<IActionResult> GetCompanyReviews(int companyId)
     {
