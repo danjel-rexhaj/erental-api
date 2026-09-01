@@ -10,7 +10,7 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? PaymentMethod = null, string? PaypalCaptureId = null, bool DoSigurim = false);
+public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? OraMarrjes = null, string? OraKthimit = null, string? PaymentMethod = null, string? PaypalCaptureId = null, bool DoSigurim = false);
 public record CancelBookingDto(string? Reason);
 
 [ApiController]
@@ -155,6 +155,8 @@ public class BookingsController : ControllerBase
             CarId = dto.CarId,
             DataFillimit = dto.DataFillimit,
             DataPerfundimit = dto.DataPerfundimit,
+            OraMarrjes = dto.OraMarrjes,
+            OraKthimit = dto.OraKthimit,
             CmimiTotal = cmimiTotal,
             CmimiSigurimit = sigurimi > 0 ? sigurimi : null,
             Statusi = "pending",
@@ -638,6 +640,8 @@ public class BookingsController : ControllerBase
                 b.BookingId,
                 b.DataFillimit,
                 b.DataPerfundimit,
+                b.OraMarrjes,
+                b.OraKthimit,
                 b.CmimiTotal,
                 b.CmimiSigurimit,
                 b.Statusi,

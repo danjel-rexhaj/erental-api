@@ -89,6 +89,8 @@ public partial class ERentalDbContext : DbContext
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("data_krijimit");
             entity.Property(e => e.DataPerfundimit).HasColumnName("data_perfundimit");
+            entity.Property(e => e.OraMarrjes).HasColumnName("ora_marrjes");
+            entity.Property(e => e.OraKthimit).HasColumnName("ora_kthimit");
             entity.Property(e => e.Statusi)
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'pending'::character varying")

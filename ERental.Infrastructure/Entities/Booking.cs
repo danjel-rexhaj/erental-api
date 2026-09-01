@@ -15,6 +15,12 @@ public partial class Booking
 
     public DateOnly DataPerfundimit { get; set; }
 
+    // Client-picked pickup/return time (e.g. "10:00") -- purely informational for the business, never
+    // checked against availability (that stays day-granular via CarAvailabilityBlocks).
+    public string? OraMarrjes { get; set; }
+
+    public string? OraKthimit { get; set; }
+
     public decimal CmimiTotal { get; set; }
 
     public DateTime? DataKrijimit { get; set; }
