@@ -11,7 +11,12 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record UpdateLocationDto(double Latitude, double Longitude);
-public record UpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban, bool? OfronDergimMakine = null, int? MinimumDitesh = null, decimal? CmimiSigurimit = null);
+public record UpdateCompanyDto(
+    string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban,
+    bool? OfronDergimMakine = null, int? MinimumDitesh = null, decimal? CmimiSigurimit = null,
+    bool? OfronKmTePakufizuara = null, decimal? CmimiShoferiShtese = null, decimal? CmimiSediljesBebe = null,
+    decimal? CmimiDergesesJashtOrarit = null, string[]? VendetKufitare = null);
+public record DeliveryZoneDto(string Zona, decimal Cmimi);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
@@ -43,7 +48,9 @@ public class CompaniesController : ControllerBase
         c.CompanyId, c.Emri, c.Email, c.Telefoni, c.Adresa, c.Qyteti, c.Nipt,
         c.EshteVerifikuar, c.DataVerifikimit, c.CommissionRate, c.DataRegjistrimit,
         c.BillingModel, c.Statusi, c.OwnerUserId, c.LogoUrl, c.Latitude, c.Longitude,
-        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine, c.MinimumDitesh, c.CmimiSigurimit
+        c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine, c.MinimumDitesh, c.CmimiSigurimit,
+        c.OfronKmTePakufizuara, c.CmimiShoferiShtese, c.CmimiSediljesBebe, c.CmimiDergesesJashtOrarit, c.VendetKufitare,
+        DeliveryZones = c.DeliveryZones.Select(z => new { z.Id, z.Zona, z.Cmimi })
     };
 
     private async Task NotifyAsync(int userId, string title, string message, string? target = null)
@@ -211,7 +218,7 @@ public class CompaniesController : ControllerBase
     public async Task<IActionResult> GetMyCompany()
     {
         var userId = GetUserId();
-        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        var company = await _context.Companies.Include(c => c.DeliveryZones).FirstOrDefaultAsync(c => c.OwnerUserId == userId);
         if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
         return Ok(ProjectCompanyOwner(company));
     }
@@ -257,9 +264,37 @@ public class CompaniesController : ControllerBase
             company.OfronDergimMakine = dto.OfronDergimMakine.Value;
         company.MinimumDitesh = dto.MinimumDitesh;
         company.CmimiSigurimit = dto.CmimiSigurimit;
+        if (dto.OfronKmTePakufizuara.HasValue)
+            company.OfronKmTePakufizuara = dto.OfronKmTePakufizuara.Value;
+        company.CmimiShoferiShtese = dto.CmimiShoferiShtese;
+        company.CmimiSediljesBebe = dto.CmimiSediljesBebe;
+        company.CmimiDergesesJashtOrarit = dto.CmimiDergesesJashtOrarit;
+        if (dto.VendetKufitare != null)
+            company.VendetKufitare = dto.VendetKufitare.Length == 0 ? null : dto.VendetKufitare;
         await _context.SaveChangesAsync();
 
         return Ok(ProjectCompanyOwner(company));
+    }
+
+    // Full replace-on-update, mirroring how a car's PriceOffers list is saved (CarsController) --
+    // simpler than diffing individual rows for a list this small.
+    [HttpPut("my-delivery-zones")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyDeliveryZones(List<DeliveryZoneDto> zones)
+    {
+        var userId = GetUserId();
+        var company = await _context.Companies.Include(c => c.DeliveryZones).FirstOrDefaultAsync(c => c.OwnerUserId == userId);
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        _context.CompanyDeliveryZones.RemoveRange(company.DeliveryZones);
+        foreach (var z in zones)
+        {
+            if (string.IsNullOrWhiteSpace(z.Zona)) continue;
+            company.DeliveryZones.Add(new CompanyDeliveryZone { CompanyId = company.CompanyId, Zona = z.Zona.Trim(), Cmimi = z.Cmimi });
+        }
+        await _context.SaveChangesAsync();
+
+        return Ok(company.DeliveryZones.Select(z => new { z.Id, z.Zona, z.Cmimi }));
     }
 
     // Soft delete: nothing is actually removed (existing bookings/invoices/contracts stay intact

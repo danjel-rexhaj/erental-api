@@ -74,7 +74,7 @@ public class CarsController : ControllerBase
     {
         var cars = await _context.Cars
             .Include(c => c.CarPhotos)
-            .Include(c => c.Company)
+            .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
             .ToListAsync();
         await AttachCompanyStatsAsync(cars);
@@ -97,7 +97,7 @@ public class CarsController : ControllerBase
         var cars = await _context.Cars
             .Where(c => c.Statusi == "active" && c.Company.EshteVerifikuar == true)
             .Include(c => c.CarPhotos)
-            .Include(c => c.Company)
+            .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
             .OrderByDescending(c => c.CarId)
             .ToListAsync();
@@ -116,7 +116,7 @@ public class CarsController : ControllerBase
     {
         var car = await _context.Cars
             .Include(c => c.CarPhotos)
-            .Include(c => c.Company)
+            .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
             .FirstOrDefaultAsync(c => c.CarId == id);
 
@@ -308,7 +308,7 @@ public class CarsController : ControllerBase
 
         var activeCars = await query
             .Include(c => c.CarPhotos)
-            .Include(c => c.Company)
+            .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.CarAvailabilityBlocks)
             .Include(c => c.PriceOffers)
             .ToListAsync();

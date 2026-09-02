@@ -58,6 +58,20 @@ public partial class Company
     // business doesn't offer it (the option stays hidden on the booking page).
     public decimal? CmimiSigurimit { get; set; }
 
+    // "Extra Services" (cria.al-style) -- all informational: the client contacts/pays the business
+    // directly for these, same trust model as OfronDergimMakine. Null price = not offered (hidden
+    // on the car page); 0 = offered for free.
+    public bool OfronKmTePakufizuara { get; set; }
+
+    public decimal? CmimiShoferiShtese { get; set; }
+
+    public decimal? CmimiSediljesBebe { get; set; }
+
+    public decimal? CmimiDergesesJashtOrarit { get; set; }
+
+    // Neighboring countries this business's cars may be driven into (null/empty = section hidden).
+    public string[]? VendetKufitare { get; set; }
+
     // Bank details for commission payouts — never serialized by default (public endpoints like
     // GetCars/GetCompanies return this entity as-is); only exposed via explicit owner/admin
     // projections in CompaniesController.
@@ -67,6 +81,8 @@ public partial class Company
     public virtual ICollection<AmenitySuggestion> AmenitySuggestions { get; set; } = new List<AmenitySuggestion>();
 
     public virtual ICollection<Car> Cars { get; set; } = new List<Car>();
+
+    public virtual ICollection<CompanyDeliveryZone> DeliveryZones { get; set; } = new List<CompanyDeliveryZone>();
 
     public virtual ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();
 

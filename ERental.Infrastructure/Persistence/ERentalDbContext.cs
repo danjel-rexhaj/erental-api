@@ -32,6 +32,8 @@ public partial class ERentalDbContext : DbContext
 
     public virtual DbSet<Company> Companies { get; set; }
 
+    public virtual DbSet<CompanyDeliveryZone> CompanyDeliveryZones { get; set; }
+
     public virtual DbSet<CompanySubscription> CompanySubscriptions { get; set; }
 
     public virtual DbSet<CompanyVerification> CompanyVerifications { get; set; }
@@ -334,6 +336,21 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.CmimiSigurimit)
                 .HasPrecision(8, 2)
                 .HasColumnName("cmimi_sigurimit");
+            entity.Property(e => e.OfronKmTePakufizuara)
+                .HasDefaultValue(false)
+                .HasColumnName("ofron_km_te_pakufizuara");
+            entity.Property(e => e.CmimiShoferiShtese)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_shoferi_shtese");
+            entity.Property(e => e.CmimiSediljesBebe)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_sediljes_bebe");
+            entity.Property(e => e.CmimiDergesesJashtOrarit)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi_dergeses_jasht_orarit");
+            entity.Property(e => e.VendetKufitare)
+                .HasColumnType("text[]")
+                .HasColumnName("vendet_kufitare");
             entity.Ignore(e => e.AvgRating);
             entity.Ignore(e => e.ReviewCount);
             entity.Ignore(e => e.CarCount);
@@ -341,6 +358,24 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.OwnerUser).WithMany(p => p.Companies)
                 .HasForeignKey(d => d.OwnerUserId)
                 .HasConstraintName("companies_owner_user_id_fkey");
+        });
+
+        modelBuilder.Entity<CompanyDeliveryZone>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("company_delivery_zones_pkey");
+
+            entity.ToTable("company_delivery_zones");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CompanyId).HasColumnName("company_id");
+            entity.Property(e => e.Zona).HasColumnName("zona");
+            entity.Property(e => e.Cmimi)
+                .HasPrecision(8, 2)
+                .HasColumnName("cmimi");
+
+            entity.HasOne(d => d.Company).WithMany(p => p.DeliveryZones)
+                .HasForeignKey(d => d.CompanyId)
+                .HasConstraintName("company_delivery_zones_company_id_fkey");
         });
 
         modelBuilder.Entity<AmenitySuggestion>(entity =>
