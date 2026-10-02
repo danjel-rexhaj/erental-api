@@ -81,7 +81,10 @@ public class UsersController : ControllerBase
             user.PatentaStatus,
             WhatsappVerified = user.WhatsappVerified ?? false,
             WhatsappStatus = latestWhatsapp?.Statusi,
-            user.IsDemo
+            user.IsDemo,
+            // Lets the client re-derive its business/client role on every app load, instead of
+            // trusting the one baked in at login (stale if the business was registered later).
+            HasCompany = await _context.Companies.AnyAsync(c => c.OwnerUserId == userId)
         });
     }
 
