@@ -80,7 +80,8 @@ public class UsersController : ControllerBase
             HasLicenseMbrapa = !string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa),
             user.PatentaStatus,
             WhatsappVerified = user.WhatsappVerified ?? false,
-            WhatsappStatus = latestWhatsapp?.Statusi
+            WhatsappStatus = latestWhatsapp?.Statusi,
+            user.IsDemo
         });
     }
 

@@ -5,6 +5,10 @@ public record PayPalOrderResult(bool Success, string? OrderId, string? ApproveUr
 
 public interface IPayPalService
 {
+    // Returns a service bound to PayPal Sandbox when demo is true (demo accounts / demo bookings),
+    // otherwise this same live-configured instance.
+    IPayPalService ForDemo(bool demo);
+
     Task<PayPalOrderResult> CreateOrderAsync(decimal amount, string currency = "EUR", string? returnUrl = null, string? cancelUrl = null);
     Task<PayPalCaptureResult> CaptureOrderAsync(string orderId);
     Task<PayPalCaptureResult> GetCaptureAsync(string captureId);

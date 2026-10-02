@@ -86,8 +86,14 @@ public class BookingsController : ControllerBase
     {
         var userId = GetUserId();
 
-        var car = await _context.Cars.Include(c => c.Company).Include(c => c.CarPhotos).Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.Company).ThenInclude(co => co.OwnerUser).Include(c => c.CarPhotos).Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
+
+        var klienti = await _context.Users.FindAsync(userId);
+        if (klienti == null) return Unauthorized();
+        var demoMismatch = PaymentsController.DemoMismatch(klienti, car);
+        if (demoMismatch != null) return BadRequest(demoMismatch);
+        var payPal = _payPal.ForDemo(klienti.IsDemo);
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Data e perfundimit duhet te jete pas dates se fillimit.");
@@ -128,7 +134,7 @@ public class BookingsController : ControllerBase
             if (string.IsNullOrWhiteSpace(dto.PaypalCaptureId))
                 return BadRequest("Mungon konfirmimi i pageses.");
 
-            var capture = await _payPal.GetCaptureAsync(dto.PaypalCaptureId);
+            var capture = await payPal.GetCaptureAsync(dto.PaypalCaptureId);
             if (!capture.Success)
                 return BadRequest("Pagesa nuk u konfirmua nga PayPal.");
 
@@ -145,7 +151,7 @@ public class BookingsController : ControllerBase
         if (konfliktet.Count > 0)
         {
             var lirohetMe = konfliktet.Max();
-            await _payPal.RefundCaptureAsync(dto.PaypalCaptureId!, shumaPaguarOnline!.Value);
+            await payPal.RefundCaptureAsync(dto.PaypalCaptureId!, shumaPaguarOnline!.Value);
             return BadRequest($"Makina eshte e zene per keto data. Lirohet me {FormatDateSq(lirohetMe)}.");
         }
 
@@ -160,7 +166,8 @@ public class BookingsController : ControllerBase
             CmimiTotal = cmimiTotal,
             CmimiSigurimit = sigurimi > 0 ? sigurimi : null,
             Statusi = "pending",
-            PaymentMethod = paymentMethod
+            PaymentMethod = paymentMethod,
+            IsDemo = klienti.IsDemo
         };
 
         _context.Bookings.Add(booking);
@@ -185,7 +192,6 @@ public class BookingsController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        var klienti = await _context.Users.FindAsync(userId);
         var makinaEmri = $"{car.Marka} {car.Modeli}";
         var carPhotoUrl = car.CarPhotos.FirstOrDefault(p => p.EshteKryesore == true)?.UrlFotos ?? car.CarPhotos.FirstOrDefault()?.UrlFotos;
 
@@ -563,7 +569,7 @@ public class BookingsController : ControllerBase
             if (hasOnlinePayment && refundEligible)
             {
                 bool refunded;
-                try { refunded = await _payPal.RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
+                try { refunded = await _payPal.ForDemo(booking.IsDemo).RefundCaptureAsync(payment.PaypalCaptureId, payment.ShumaPaguarOnline.Value); }
                 catch (Exception ex) { Console.WriteLine($"CancelBooking refund error: {ex.Message}"); refunded = false; }
 
                 // Only mark it refunded if PayPal actually confirmed it — otherwise this silently

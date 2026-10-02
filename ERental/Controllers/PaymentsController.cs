@@ -1,4 +1,5 @@
 using ERental.Application.Interfaces;
+using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,16 @@ public class PaymentsController : ControllerBase
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    // Demo accounts pay through PayPal Sandbox, so they may only book cars of demo businesses
+    // (owner is a demo account) — and real clients may never pay real money to a demo business.
+    internal static string? DemoMismatch(User user, Car car)
+    {
+        bool demoBusiness = car.Company?.OwnerUser?.IsDemo == true;
+        if (user.IsDemo && !demoBusiness) return "Llogarite demo mund te rezervojne vetem makina te bizneseve demo.";
+        if (!user.IsDemo && demoBusiness) return "Kjo makine eshte vetem per demo dhe nuk mund te rezervohet.";
+        return null;
+    }
+
     // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
     // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used — the
     // frontend sends the browser to the returned approveUrl instead of rendering an inline lightbox.
@@ -43,8 +54,11 @@ public class PaymentsController : ControllerBase
         if (user == null || string.IsNullOrWhiteSpace(user.PatentaFotoPara) || string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa))
             return BadRequest("Duhet te shtosh foton e patentes (para dhe mbrapa) ne profilin tend para se te rezervosh.");
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).ThenInclude(co => co.OwnerUser).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
+
+        var demoMismatch = DemoMismatch(user, car);
+        if (demoMismatch != null) return BadRequest(demoMismatch);
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
@@ -69,7 +83,7 @@ public class PaymentsController : ControllerBase
         // so a no-show only costs the client the (non-refundable) deposit, not the insurance too.
         decimal shuma = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
 
-        var result = await _payPal.CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
+        var result = await _payPal.ForDemo(user.IsDemo).CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
             return BadRequest(result.Error ?? "Krijimi i pageses deshtoi.");
 
@@ -86,8 +100,14 @@ public class PaymentsController : ControllerBase
         if (dto.Method != "deposit" && dto.Method != "full")
             return BadRequest("Menyre pagese e panjohur.");
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var user = await _context.Users.FindAsync(GetUserId());
+        if (user == null) return Unauthorized();
+
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).ThenInclude(co => co.OwnerUser).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
+
+        var demoMismatch = DemoMismatch(user, car);
+        if (demoMismatch != null) return BadRequest(demoMismatch);
 
         if (dto.DataPerfundimit <= dto.DataFillimit)
             return BadRequest("Datat nuk jane te vlefshme.");
@@ -109,14 +129,15 @@ public class PaymentsController : ControllerBase
         decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
         decimal pritshme = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
 
-        var result = await _payPal.CaptureOrderAsync(dto.PaypalOrderId);
+        var payPal = _payPal.ForDemo(user.IsDemo);
+        var result = await payPal.CaptureOrderAsync(dto.PaypalOrderId);
         if (!result.Success)
             return BadRequest(result.Error ?? "Pagesa nuk u pranua nga PayPal.");
 
         if (result.Amount == null || Math.Abs(result.Amount.Value - pritshme) > 0.01m)
         {
             if (result.CaptureId != null)
-                await _payPal.RefundCaptureAsync(result.CaptureId, result.Amount ?? pritshme, result.Currency ?? "EUR");
+                await payPal.RefundCaptureAsync(result.CaptureId, result.Amount ?? pritshme, result.Currency ?? "EUR");
             return BadRequest("Shuma e paguar nuk perputhet me cmimin e pritshem. Pagesa u rimbursua automatikisht.");
         }
 
@@ -146,7 +167,7 @@ public class PaymentsController : ControllerBase
                 p.Komisioni,
                 p.ShumaBiznesit,
                 p.PaypalCaptureId,
-                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit },
+                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit, p.Booking.IsDemo },
                 Car = new { p.Booking.Car.Marka, p.Booking.Car.Modeli },
                 Klienti = new { p.Booking.User.Emri, p.Booking.User.Mbiemri }
             })
@@ -178,7 +199,7 @@ public class PaymentsController : ControllerBase
                 p.Komisioni,
                 p.ShumaBiznesit,
                 p.PaypalCaptureId,
-                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit },
+                Booking = new { p.Booking.BookingId, p.Booking.DataFillimit, p.Booking.DataPerfundimit, p.Booking.IsDemo },
                 Car = new { p.Booking.Car.Marka, p.Booking.Car.Modeli },
                 Klienti = new { p.Booking.User.Emri, p.Booking.User.Mbiemri },
                 Biznesi = new { p.Booking.Car.Company.CompanyId, p.Booking.Car.Company.Emri }

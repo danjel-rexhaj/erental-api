@@ -37,6 +37,10 @@ public partial class User
 
     public string? Kombesia { get; set; }
 
+    // Demo accounts (set by hand in the DB) pay through PayPal Sandbox instead of live, so the full
+    // booking flow can be shown with test cards. Their bookings are flagged IsDemo too.
+    public bool IsDemo { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<Company> Companies { get; set; } = new List<Company>();

@@ -9,23 +9,37 @@ namespace ERental.Infrastructure.Services;
 
 public class PayPalService : IPayPalService
 {
+    private const string SandboxBaseUrl = "https://api-m.sandbox.paypal.com";
+
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
+    // "PayPal" is the real (live) account; "PayPalSandbox" holds the Sandbox app's credentials
+    // used for demo accounts. Full URLs instead of HttpClient.BaseAddress so both modes can
+    // share the one injected HttpClient.
+    private readonly string _section;
+    private readonly string _baseUrl;
 
-    public PayPalService(HttpClient http, IConfiguration config)
+    public PayPalService(HttpClient http, IConfiguration config) : this(http, config, sandbox: false) { }
+
+    private PayPalService(HttpClient http, IConfiguration config, bool sandbox)
     {
         _http = http;
-        _http.BaseAddress = new Uri(config["PayPal:BaseUrl"] ?? "https://api-m.sandbox.paypal.com");
         _config = config;
+        _section = sandbox ? "PayPalSandbox" : "PayPal";
+        _baseUrl = (sandbox ? SandboxBaseUrl : config["PayPal:BaseUrl"] ?? SandboxBaseUrl).TrimEnd('/');
     }
+
+    public IPayPalService ForDemo(bool demo) => demo ? new PayPalService(_http, _config, sandbox: true) : this;
+
+    private string Url(string path) => _baseUrl + path;
 
     private async Task<string?> GetAccessTokenAsync()
     {
-        var clientId = _config["PayPal:ClientId"];
-        var secret = _config["PayPal:Secret"];
+        var clientId = _config[$"{_section}:ClientId"];
+        var secret = _config[$"{_section}:Secret"];
         var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{secret}"));
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/v1/oauth2/token");
+        using var req = new HttpRequestMessage(HttpMethod.Post, Url("/v1/oauth2/token"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
         req.Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "client_credentials" });
 
@@ -62,7 +76,7 @@ public class PayPalService : IPayPalService
         var token = await GetAccessTokenAsync();
         if (token == null) return new PayPalOrderResult(false, null, null, "Autentikimi me PayPal deshtoi.");
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/v2/checkout/orders");
+        using var req = new HttpRequestMessage(HttpMethod.Post, Url("/v2/checkout/orders"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // application_context.landing_page is deprecated — the current place to control the hosted
@@ -139,7 +153,7 @@ public class PayPalService : IPayPalService
         // (ORDER_NOT_APPROVED), so retry briefly before treating it as a genuine failure.
         for (int attempt = 1; attempt <= 3; attempt++)
         {
-            using var req = new HttpRequestMessage(HttpMethod.Post, $"/v2/checkout/orders/{orderId}/capture");
+            using var req = new HttpRequestMessage(HttpMethod.Post, Url($"/v2/checkout/orders/{orderId}/capture"));
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             req.Content = new StringContent("", Encoding.UTF8, "application/json");
 
@@ -181,7 +195,7 @@ public class PayPalService : IPayPalService
 
     private async Task<PayPalCaptureResult?> GetOrderCaptureAsync(string orderId, string token)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"/v2/checkout/orders/{orderId}");
+        using var req = new HttpRequestMessage(HttpMethod.Get, Url($"/v2/checkout/orders/{orderId}"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var res = await _http.SendAsync(req);
         if (!res.IsSuccessStatusCode) return null;
@@ -196,7 +210,7 @@ public class PayPalService : IPayPalService
         var token = await GetAccessTokenAsync();
         if (token == null) return new PayPalCaptureResult(false, null, null, null, null, "Autentikimi me PayPal deshtoi.");
 
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"/v2/payments/captures/{captureId}");
+        using var req = new HttpRequestMessage(HttpMethod.Get, Url($"/v2/payments/captures/{captureId}"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var res = await _http.SendAsync(req);
@@ -212,7 +226,7 @@ public class PayPalService : IPayPalService
         var token = await GetAccessTokenAsync();
         if (token == null) return false;
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"/v2/payments/captures/{captureId}/refund");
+        using var req = new HttpRequestMessage(HttpMethod.Post, Url($"/v2/payments/captures/{captureId}/refund"));
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         req.Content = JsonContent.Create(new
         {

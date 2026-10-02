@@ -125,7 +125,7 @@ public class AnalyticsController : ControllerBase
         };
 
         var completedPayments = await _context.Payments
-            .Where(p => p.Statusi == "completed")
+            .Where(p => p.Statusi == "completed" && !p.Booking.IsDemo)
             .ToListAsync();
 
         var totals = new
@@ -147,7 +147,7 @@ public class AnalyticsController : ControllerBase
             .ToListAsync();
 
         var companyBreakdown = await _context.Payments
-            .Where(p => p.Statusi == "completed")
+            .Where(p => p.Statusi == "completed" && !p.Booking.IsDemo)
             .Join(_context.Bookings, p => p.BookingId, b => b.BookingId, (p, b) => new { p.ShumaTotale, p.Komisioni, b.CarId })
             .Join(_context.Cars, x => x.CarId, c => c.CarId, (x, c) => new { x.ShumaTotale, x.Komisioni, c.CompanyId })
             .Join(_context.Companies, x => x.CompanyId, co => co.CompanyId, (x, co) => new { x.ShumaTotale, x.Komisioni, co.Emri })

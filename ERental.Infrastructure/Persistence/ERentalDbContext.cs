@@ -93,6 +93,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.DataPerfundimit).HasColumnName("data_perfundimit");
             entity.Property(e => e.OraMarrjes).HasColumnName("ora_marrjes");
             entity.Property(e => e.OraKthimit).HasColumnName("ora_kthimit");
+            entity.Property(e => e.IsDemo).HasColumnName("is_demo");
             entity.Property(e => e.Statusi)
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'pending'::character varying")
@@ -713,6 +714,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Kombesia)
                 .HasMaxLength(50)
                 .HasColumnName("kombesia");
+            entity.Property(e => e.IsDemo).HasColumnName("is_demo");
         });
 
         modelBuilder.Entity<WhatsappVerification>(entity =>

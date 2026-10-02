@@ -43,6 +43,10 @@ public partial class Booking
     // change to the business's insurance price never retroactively alters past bookings.
     public decimal? CmimiSigurimit { get; set; }
 
+    // Made by a demo account and paid through PayPal Sandbox — no real money moved, so it's kept
+    // out of platform revenue totals, and refunds for it must go to Sandbox too.
+    public bool IsDemo { get; set; }
+
     public virtual Car Car { get; set; } = null!;
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
