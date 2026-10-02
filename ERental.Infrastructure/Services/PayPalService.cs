@@ -43,8 +43,21 @@ public class PayPalService : IPayPalService
         req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
         req.Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "client_credentials" });
 
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(secret) || clientId == "CHANGE_ME")
+        {
+            Console.WriteLine($"PayPal auth skipped: {_section}:ClientId/Secret not configured.");
+            return null;
+        }
+
         var res = await _http.SendAsync(req);
-        if (!res.IsSuccessStatusCode) return null;
+        if (!res.IsSuccessStatusCode)
+        {
+            // Log PayPal's reason (e.g. invalid_client = wrong id/secret, or live keys used against
+            // Sandbox) without the credentials themselves; only the id's prefix, to tell apps apart.
+            var err = await res.Content.ReadAsStringAsync();
+            Console.WriteLine($"PayPal auth failed ({_section} @ {_baseUrl}, clientId {clientId[..Math.Min(8, clientId.Length)]}...): {(int)res.StatusCode} {err}");
+            return null;
+        }
 
         var json = await res.Content.ReadFromJsonAsync<JsonElement>();
         return json.GetProperty("access_token").GetString();
