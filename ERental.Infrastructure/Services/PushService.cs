@@ -49,7 +49,10 @@ public class PushService : IPushService
         // per-event title (e.g. "WhatsApp u verifikua") is only used for the in-app bell, which has
         // room for a heading; here it's redundant with the message body, so it's dropped rather
         // than shown as "Title: message". `title` stays a parameter for that in-app-bell purpose.
-        var payload = JsonSerializer.Serialize(new { title = "ERental", body = message, url = TargetToUrl(target) });
+        // Sent along so the service worker can put the unread count on the installed app's icon
+        // (the app itself isn't running when a push arrives, so it can't count them on its own).
+        var unread = await _context.Notifications.CountAsync(n => n.UserId == userId && n.IsRead == false);
+        var payload = JsonSerializer.Serialize(new { title = "ERental", body = message, url = TargetToUrl(target), unread });
         var toRemove = new List<int>();
 
         foreach (var sub in subs)
