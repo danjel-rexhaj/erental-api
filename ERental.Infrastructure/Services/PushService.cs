@@ -35,6 +35,7 @@ public class PushService : IPushService
         "admin_license_verification" => "/biznesi?tab=patenta",
         "admin_amenity_suggestion" => "/biznesi?tab=amenity-suggestions",
         "admin_car_suggestion" => "/biznesi?tab=car-suggestions",
+        "admin_new_user" => "/biznesi?tab=admin-users",
         "whatsapp_verified" or "license_verified" or "license_rejected" => "/profili",
         _ => "/",
     };

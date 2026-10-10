@@ -1,8 +1,10 @@
 ﻿using ERental.Application.Interfaces;
+using ERental.Hubs;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -27,12 +29,35 @@ public class AuthController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IConfiguration _config;
     private readonly IEmailService _emailService;
+    private readonly IHubContext<NotificationHub> _hub;
+    private readonly IPushService _push;
 
-    public AuthController(ERentalDbContext context, IConfiguration config, IEmailService emailService)
+    public AuthController(ERentalDbContext context, IConfiguration config, IEmailService emailService, IHubContext<NotificationHub> hub, IPushService push)
     {
         _context = context;
         _config = config;
         _emailService = emailService;
+        _hub = hub;
+        _push = push;
+    }
+
+    private async Task NotifyAsync(int userId, string title, string message, string? target = null)
+    {
+        var notif = new Notification { UserId = userId, Title = title, Message = message, IsRead = false, Target = target };
+        _context.Notifications.Add(notif);
+        await _context.SaveChangesAsync();
+
+        await _hub.Clients.Group(userId.ToString()).SendAsync("notification", new
+        {
+            id = notif.Id,
+            title = notif.Title,
+            message = notif.Message,
+            createdAt = notif.DataKrijimit,
+            bookingId = notif.BookingId,
+            target = notif.Target
+        });
+
+        try { await _push.SendToUserAsync(userId, title, message, target); } catch { }
     }
 
     [HttpPost("register")]
@@ -159,6 +184,11 @@ public class AuthController : ControllerBase
         await _context.SaveChangesAsync();
 
         try { await _emailService.SendWelcomeAsync(user.Email, user.Emri); } catch (Exception ex) { Console.WriteLine($"Welcome email error: {ex.Message}"); }
+
+        // Fired only here (not on /register) so the admin hears about real, email-verified accounts
+        // and never about abandoned signups. Never allowed to fail the signup itself.
+        try { await NotifyAsync(1, "Perdorues i ri", $"{user.Emri} {user.Mbiemri} ({user.Email}) u regjistrua ne platforme.", "admin_new_user"); }
+        catch (Exception ex) { Console.WriteLine($"New user notification error: {ex.Message}"); }
 
         var token = GenerateToken(user.Email, user.UserId);
         return Ok(new AuthResponseDto(token, user.Email, user.Emri, user.Mbiemri, user.Telefoni, user.HasWhatsapp ?? false, true, false));
