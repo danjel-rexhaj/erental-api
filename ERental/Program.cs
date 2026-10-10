@@ -16,6 +16,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IPrivateFileService, PrivateFileService>();
 builder.Services.AddScoped<IPushService, PushService>();
 builder.Services.AddHttpClient<IPayPalService, PayPalService>();
+builder.Services.AddHttpClient<ISupportChatService, SupportChatService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHostedService<BookingCompletionService>();
 
 builder.Services.AddControllers()
