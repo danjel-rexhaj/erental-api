@@ -200,16 +200,17 @@ public class BookingsController : ControllerBase
             if (klienti != null)
                 await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, booking.BookingId, carPhotoUrl, car.Targa);
 
-            if (car.Company.Email != null)
-                await _emailService.SendBookingRequestToBusinessAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
+            var biznesEmail = car.Company.Email ?? car.Company.OwnerUser?.Email;
+            if (biznesEmail != null)
+                await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
 
             if (shumaPaguarOnline != null)
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
                     await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
-                if (car.Company.Email != null)
-                    await _emailService.SendPaymentReceiptAsync(car.Company.Email, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
+                if (biznesEmail != null)
+                    await _emailService.SendPaymentReceiptAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }
@@ -519,7 +520,7 @@ public class BookingsController : ControllerBase
         var userId = GetUserId();
 
         var booking = await _context.Bookings
-            .Include(b => b.Car).ThenInclude(c => c.Company)
+            .Include(b => b.Car).ThenInclude(c => c.Company).ThenInclude(co => co.OwnerUser)
             .Include(b => b.Car).ThenInclude(c => c.CarPhotos)
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.BookingId == id);
@@ -603,9 +604,10 @@ public class BookingsController : ControllerBase
                 $"{booking.Car.Marka} {booking.Car.Modeli}",
                 booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
 
-            if (!eshteBiznesi && booking.Car.Company.Email != null)
+            var biznesEmailCancel = booking.Car.Company.Email ?? booking.Car.Company.OwnerUser?.Email;
+            if (!eshteBiznesi && biznesEmailCancel != null)
                 await _emailService.SendBookingCancelledAsync(
-                    booking.Car.Company.Email, booking.Car.Company.Emri,
+                    biznesEmailCancel, booking.Car.Company.Emri,
                     $"{booking.Car.Marka} {booking.Car.Modeli}",
                     booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
         }
