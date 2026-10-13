@@ -200,7 +200,7 @@ public class BookingsController : ControllerBase
             if (klienti != null)
                 await _emailService.SendBookingPendingToClientAsync(klienti.Email, klienti.Emri, makinaEmri, dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), cmimiTotal, booking.BookingId, carPhotoUrl, car.Targa);
 
-            var biznesEmail = car.Company.Email ?? car.Company.OwnerUser?.Email;
+            var biznesEmail = car.Company.OwnerUser?.Email ?? car.Company.Email;
             if (biznesEmail != null)
                 await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
 
@@ -604,7 +604,7 @@ public class BookingsController : ControllerBase
                 $"{booking.Car.Marka} {booking.Car.Modeli}",
                 booking.DataFillimit.ToString(), booking.DataPerfundimit.ToString(), booking.BookingId, carPhotoUrl, booking.ArsyejaRefuzimit);
 
-            var biznesEmailCancel = booking.Car.Company.Email ?? booking.Car.Company.OwnerUser?.Email;
+            var biznesEmailCancel = booking.Car.Company.OwnerUser?.Email ?? booking.Car.Company.Email;
             if (!eshteBiznesi && biznesEmailCancel != null)
                 await _emailService.SendBookingCancelledAsync(
                     biznesEmailCancel, booking.Car.Company.Emri,
