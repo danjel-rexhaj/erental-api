@@ -13,7 +13,7 @@ using System.Text;
 
 namespace ERental.Controllers;
 
-public record RegisterDto(string Emri, string? Mbiemri, string Email, string Password, string? Telefoni, bool HasWhatsapp, string? Kombesia);
+public record RegisterDto(string Emri, string? Mbiemri, string Email, string Password, string? Telefoni, bool HasWhatsapp, string? Kombesia, string? KodPromocional);
 public record LoginDto(string Email, string Password);
 public record AuthResponseDto(string Token, string Email, string Emri, string Mbiemri, string? Telefoni, bool HasWhatsapp, bool EmailVerified, bool HasCompany);
 public record VerifyEmailDto(string Email, string Code);
@@ -79,6 +79,7 @@ public class AuthController : ControllerBase
             existing.Telefoni = dto.Telefoni;
             existing.HasWhatsapp = dto.HasWhatsapp;
             existing.Kombesia = dto.Kombesia;
+            existing.KodPromocional = dto.KodPromocional?.Trim().ToUpperInvariant();
             existing.Code = code;
             existing.DataSkadimit = expiry;
         }
@@ -93,6 +94,7 @@ public class AuthController : ControllerBase
                 Telefoni = dto.Telefoni,
                 HasWhatsapp = dto.HasWhatsapp,
                 Kombesia = dto.Kombesia,
+                KodPromocional = dto.KodPromocional?.Trim().ToUpperInvariant(),
                 Code = code,
                 DataSkadimit = expiry
             });
@@ -176,6 +178,7 @@ public class AuthController : ControllerBase
             Telefoni = pending.Telefoni,
             HasWhatsapp = pending.HasWhatsapp,
             Kombesia = pending.Kombesia,
+            KodPromocional = pending.KodPromocional,
             EmailVerified = true
         };
 

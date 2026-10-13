@@ -41,6 +41,8 @@ public partial class User
     // booking flow can be shown with test cards. Their bookings are flagged IsDemo too.
     public bool IsDemo { get; set; }
 
+    public string? KodPromocional { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<Company> Companies { get; set; } = new List<Company>();

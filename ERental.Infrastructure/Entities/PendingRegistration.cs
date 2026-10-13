@@ -18,4 +18,5 @@ public partial class PendingRegistration
     public string Code { get; set; } = null!;
     public DateTime? DataKrijimit { get; set; }
     public DateTime DataSkadimit { get; set; }
+    public string? KodPromocional { get; set; }
 }
