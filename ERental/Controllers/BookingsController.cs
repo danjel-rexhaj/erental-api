@@ -26,7 +26,7 @@ public class BookingsController : ControllerBase
 
     // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
     // price. Businesses keep the full rental price — this fee is not withheld from them.
-    private const decimal OnlineServiceFee = 10m;
+    private const decimal OnlineServiceFee = 5m;
 
     public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService, IPushService push)
     {

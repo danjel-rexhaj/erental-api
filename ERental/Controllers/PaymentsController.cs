@@ -1,4 +1,4 @@
-using ERental.Application.Interfaces;
+﻿using ERental.Application.Interfaces;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -19,8 +19,8 @@ public class PaymentsController : ControllerBase
     private readonly IPayPalService _payPal;
 
     // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
-    // price. Businesses keep the full rental price — this fee is not withheld from them.
-    private const decimal OnlineServiceFee = 10m;
+    // price. Businesses keep the full rental price â€” this fee is not withheld from them.
+    private const decimal OnlineServiceFee = 5m;
 
     public PaymentsController(ERentalDbContext context, IPayPalService payPal)
     {
@@ -31,7 +31,7 @@ public class PaymentsController : ControllerBase
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     // Demo accounts pay through PayPal Sandbox, so they may only book cars of demo businesses
-    // (owner is a demo account) — and real clients may never pay real money to a demo business.
+    // (owner is a demo account) â€” and real clients may never pay real money to a demo business.
     internal static string? DemoMismatch(User user, Car car)
     {
         bool demoBusiness = car.Company?.OwnerUser?.IsDemo == true;
@@ -41,7 +41,7 @@ public class PaymentsController : ControllerBase
     }
 
     // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
-    // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used — the
+    // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used â€” the
     // frontend sends the browser to the returned approveUrl instead of rendering an inline lightbox.
     [HttpPost("paypal/create-order")]
     [Authorize]
@@ -144,7 +144,7 @@ public class PaymentsController : ControllerBase
         return Ok(new { captureId = result.CaptureId, amountPaid = result.Amount, cardLast4 = result.CardLast4 });
     }
 
-    // Transaction ledger for the caller's own business — reference number, amounts, and who/what it was for.
+    // Transaction ledger for the caller's own business â€” reference number, amounts, and who/what it was for.
     [HttpGet("my-company")]
     [Authorize]
     public async Task<IActionResult> GetMyCompanyPayments()
@@ -176,7 +176,7 @@ public class PaymentsController : ControllerBase
         return Ok(payments);
     }
 
-    // Platform-wide transaction ledger, every business — admin only.
+    // Platform-wide transaction ledger, every business â€” admin only.
     [HttpGet("admin")]
     [Authorize]
     public async Task<IActionResult> GetAllPayments()
