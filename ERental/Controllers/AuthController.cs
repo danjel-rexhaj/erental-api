@@ -79,7 +79,7 @@ public class AuthController : ControllerBase
             existing.Telefoni = dto.Telefoni;
             existing.HasWhatsapp = dto.HasWhatsapp;
             existing.Kombesia = dto.Kombesia;
-            existing.KodPromocional = dto.KodPromocional?.Trim().ToUpperInvariant();
+            existing.KodPromocional = string.IsNullOrWhiteSpace(dto.KodPromocional) ? null : dto.KodPromocional.Trim().ToUpperInvariant();
             existing.Code = code;
             existing.DataSkadimit = expiry;
         }
@@ -94,7 +94,7 @@ public class AuthController : ControllerBase
                 Telefoni = dto.Telefoni,
                 HasWhatsapp = dto.HasWhatsapp,
                 Kombesia = dto.Kombesia,
-                KodPromocional = dto.KodPromocional?.Trim().ToUpperInvariant(),
+                KodPromocional = string.IsNullOrWhiteSpace(dto.KodPromocional) ? null : dto.KodPromocional.Trim().ToUpperInvariant(),
                 Code = code,
                 DataSkadimit = expiry
             });
