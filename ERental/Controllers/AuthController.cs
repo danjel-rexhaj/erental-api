@@ -129,6 +129,27 @@ public class AuthController : ControllerBase
             }
             catch { }
 
+            // Signed up but never entered the email code (closed the tab, code expired): without this
+            // they'd be told the account doesn't exist and have no way back to the verify screen.
+            var pending = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email == dto.Email);
+            if (pending != null && BCrypt.Net.BCrypt.Verify(dto.Password, pending.PasswordHash))
+            {
+                pending.Code = new Random().Next(100000, 999999).ToString();
+                pending.DataSkadimit = DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(15), DateTimeKind.Unspecified);
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    await _emailService.SendVerificationCodeAsync(pending.Email, pending.Emri, pending.Code);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    return StatusCode(500, "Dergimi i email-it deshtoi. Provo perseri.");
+                }
+                return StatusCode(403, new { pendingVerification = true, email = pending.Email, emri = pending.Emri, message = "Llogaria nuk eshte verifikuar ende. Te dergova nje kod te ri ne email." });
+            }
+            if (pending != null) return Unauthorized("Email ose fjalekalim gabim.");
+
             return Unauthorized("Ky account nuk ekziston. Ju lutem rregjistrohuni.");
         }
 
