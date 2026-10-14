@@ -72,6 +72,11 @@ public partial class Company
     // Neighboring countries this business's cars may be driven into (null/empty = section hidden).
     public string[]? VendetKufitare { get; set; }
 
+    // Company-level late-return policy: "day" = charge one extra day at the car's rate,
+    // "fixed" = charge VonjesaAmount. Null = no policy (section hidden on booking page).
+    public string? VonjesaPolicy { get; set; }
+    public decimal? VonjesaAmount { get; set; }
+
     // Bank details for commission payouts — never serialized by default (public endpoints like
     // GetCars/GetCompanies return this entity as-is); only exposed via explicit owner/admin
     // projections in CompaniesController.

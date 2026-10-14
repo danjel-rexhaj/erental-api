@@ -355,6 +355,8 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.VendetKufitare)
                 .HasColumnType("text[]")
                 .HasColumnName("vendet_kufitare");
+            entity.Property(e => e.VonjesaPolicy).HasMaxLength(10).HasColumnName("vonesa_policy");
+            entity.Property(e => e.VonjesaAmount).HasPrecision(8, 2).HasColumnName("vonesa_amount");
             entity.Ignore(e => e.AvgRating);
             entity.Ignore(e => e.ReviewCount);
             entity.Ignore(e => e.CarCount);

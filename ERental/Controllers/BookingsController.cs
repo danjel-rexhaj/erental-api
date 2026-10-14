@@ -24,9 +24,8 @@ public class BookingsController : ControllerBase
     private readonly IPrivateFileService _privateFileService;
     private readonly IPushService _push;
 
-    // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
-    // price. Businesses keep the full rental price — this fee is not withheld from them.
-    private const decimal OnlineServiceFee = 5m;
+    // Per-day platform markup built into the customer-facing price.
+    private const decimal PlatformMarkup = 5m;
 
     public BookingsController(ERentalDbContext context, IEmailService emailService, IHubContext<NotificationHub> hub, IPayPalService payPal, IPrivateFileService privateFileService, IPushService push)
     {
@@ -128,6 +127,7 @@ public class BookingsController : ControllerBase
 
         // The capture already happened via POST /api/Payments/paypal/capture — re-verify it here
         // against PayPal directly rather than trusting the client's claimed amount/method.
+        decimal customerTotal = cmimiTotal + diteRezervimi * PlatformMarkup;
         decimal? shumaPaguarOnline;
         string? cardLast4;
         {
@@ -140,7 +140,7 @@ public class BookingsController : ControllerBase
 
             // Insurance only rides along with a full online payment, not a deposit -- see the same
             // note in PaymentsController.
-            var pritshme = (paymentMethod == "paypal_deposit" ? car.CmimiDites : cmimiTotal + sigurimi) + OnlineServiceFee;
+            var pritshme = paymentMethod == "paypal_deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
             if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 
@@ -174,14 +174,13 @@ public class BookingsController : ControllerBase
         await _context.SaveChangesAsync();
 
         {
-            // Businesses keep the full rental price (and insurance, if selected) online too — the
-            // flat OnlineServiceFee is a platform fee added on top for the client, not a cut
-            // withheld from the business.
+            // Businesses keep the full rental price (and insurance, if selected); PlatformMarkup
+            // is what the customer pays on top — it is the platform's revenue.
             _context.Payments.Add(new Payment
             {
                 BookingId = booking.BookingId,
-                ShumaTotale = cmimiTotal + sigurimi,
-                Komisioni = OnlineServiceFee,
+                ShumaTotale = customerTotal + sigurimi,
+                Komisioni = diteRezervimi * PlatformMarkup,
                 ShumaBiznesit = cmimiTotal + sigurimi,
                 ShumaPaguarOnline = shumaPaguarOnline,
                 MetodaPageses = paymentMethod,
@@ -202,15 +201,18 @@ public class BookingsController : ControllerBase
 
             var biznesEmail = car.Company.OwnerUser?.Email ?? car.Company.Email;
             if (biznesEmail != null)
-                await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl, car.FeeVonesaPerOre, car.FeeVonesaPerDite);
+            {
+                decimal? emailFeeVonesa = car.Company.VonjesaPolicy == "day" ? car.CmimiDites : car.Company.VonjesaAmount;
+                await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl, null, emailFeeVonesa);
+            }
 
             if (shumaPaguarOnline != null)
             {
                 bool eshtePagesePlote = paymentMethod == "paypal_full";
                 if (klienti != null)
-                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
+                    await _emailService.SendPaymentReceiptAsync(klienti.Email, klienti.Emri, makinaEmri, car.Company.Emri, shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: false, totalPrice: customerTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: 0, insuranceFee: sigurimi);
                 if (biznesEmail != null)
-                    await _emailService.SendPaymentReceiptAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: cmimiTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: OnlineServiceFee, insuranceFee: sigurimi);
+                    await _emailService.SendPaymentReceiptAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", shumaPaguarOnline.Value, eshtePagesePlote, booking.BookingId, perBiznesin: true, totalPrice: customerTotal, dataFillimit: dto.DataFillimit.ToString(), dataPerfundimit: dto.DataPerfundimit.ToString(), serviceFee: 0, insuranceFee: sigurimi);
             }
         }
         catch (Exception ex) { Console.WriteLine($"CreateBooking email error: {ex.Message}"); }

@@ -18,9 +18,9 @@ public class PaymentsController : ControllerBase
     private readonly ERentalDbContext _context;
     private readonly IPayPalService _payPal;
 
-    // Flat platform fee charged to the client on every online (PayPal) booking, on top of the rental
-    // price. Businesses keep the full rental price â€” this fee is not withheld from them.
-    private const decimal OnlineServiceFee = 5m;
+    // Per-day platform markup built into the customer-facing price — the business sets their rate
+    // and the customer sees that rate + PlatformMarkup. Never a separate line item.
+    private const decimal PlatformMarkup = 5m;
 
     public PaymentsController(ERentalDbContext context, IPayPalService payPal)
     {
@@ -77,11 +77,12 @@ public class PaymentsController : ControllerBase
         }
 
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
-        decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
+        decimal rentalTotal = offer?.CmimiTotal ?? dite * car.CmimiDites;
+        decimal customerTotal = rentalTotal + dite * PlatformMarkup;
         // Insurance only rides along with a full online payment -- with a deposit, it's collected
         // in cash at pickup alongside the rest of the rental, same as the un-deposited rental balance,
         // so a no-show only costs the client the (non-refundable) deposit, not the insurance too.
-        decimal shuma = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
+        decimal shuma = dto.Method == "deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
 
         var result = await _payPal.ForDemo(user.IsDemo).CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
@@ -126,8 +127,9 @@ public class PaymentsController : ControllerBase
         }
 
         var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
-        decimal totali = offer?.CmimiTotal ?? dite * car.CmimiDites;
-        decimal pritshme = (dto.Method == "deposit" ? car.CmimiDites : totali + sigurimi) + OnlineServiceFee;
+        decimal rentalTotal = offer?.CmimiTotal ?? dite * car.CmimiDites;
+        decimal customerTotal = rentalTotal + dite * PlatformMarkup;
+        decimal pritshme = dto.Method == "deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
 
         var payPal = _payPal.ForDemo(user.IsDemo);
         var result = await payPal.CaptureOrderAsync(dto.PaypalOrderId);

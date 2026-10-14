@@ -15,7 +15,8 @@ public record UpdateCompanyDto(
     string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Iban,
     bool? OfronDergimMakine = null, int? MinimumDitesh = null, decimal? CmimiSigurimit = null,
     bool? OfronKmTePakufizuara = null, decimal? CmimiShoferiShtese = null, decimal? CmimiSediljesBebe = null,
-    decimal? CmimiDergesesJashtOrarit = null, string[]? VendetKufitare = null);
+    decimal? CmimiDergesesJashtOrarit = null, string[]? VendetKufitare = null,
+    string? VonjesaPolicy = null, decimal? VonjesaAmount = null);
 public record DeliveryZoneDto(string Zona, decimal Cmimi);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
@@ -264,6 +265,8 @@ public class CompaniesController : ControllerBase
             company.OfronDergimMakine = dto.OfronDergimMakine.Value;
         company.MinimumDitesh = dto.MinimumDitesh;
         company.CmimiSigurimit = dto.CmimiSigurimit;
+        company.VonjesaPolicy = string.IsNullOrEmpty(dto.VonjesaPolicy) ? null : dto.VonjesaPolicy;
+        company.VonjesaAmount = dto.VonjesaAmount;
         if (dto.OfronKmTePakufizuara.HasValue)
             company.OfronKmTePakufizuara = dto.OfronKmTePakufizuara.Value;
         company.CmimiShoferiShtese = dto.CmimiShoferiShtese;
