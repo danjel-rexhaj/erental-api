@@ -312,6 +312,7 @@ public class UsersController : ControllerBase
         _context.WhatsappVerifications.RemoveRange(_context.WhatsappVerifications.Where(w => w.UserId == userId));
         _context.EmailVerifications.RemoveRange(_context.EmailVerifications.Where(e => e.UserId == userId));
         _context.Notifications.RemoveRange(_context.Notifications.Where(n => n.UserId == userId));
+        _context.PushSubscriptions.RemoveRange(_context.PushSubscriptions.Where(p => p.UserId == userId));
 
         await _context.SaveChangesAsync();
         return Ok(new { message = "Llogaria u fshi." });
@@ -383,6 +384,7 @@ public class UsersController : ControllerBase
         _context.CarViews.RemoveRange(_context.CarViews.Where(v => v.UserId == id));
         _context.WhatsappVerifications.RemoveRange(_context.WhatsappVerifications.Where(w => w.UserId == id));
         _context.EmailVerifications.RemoveRange(_context.EmailVerifications.Where(e => e.UserId == id));
+        _context.PushSubscriptions.RemoveRange(_context.PushSubscriptions.Where(p => p.UserId == id));
         await _context.SaveChangesAsync();
 
         _context.Users.Remove(user);
