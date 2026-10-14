@@ -63,14 +63,14 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
-        if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        if (await _context.Users.AnyAsync(u => u.Email.ToLower() == NormEmail(dto.Email)))
             return BadRequest("Email-i eshte i regjistruar tashme.");
 
         var code = new Random().Next(100000, 999999).ToString();
         var expiry = DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(15), DateTimeKind.Unspecified);
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
-        var existing = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email == dto.Email);
+        var existing = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email.ToLower() == NormEmail(dto.Email));
         if (existing != null)
         {
             existing.Emri = dto.Emri;
@@ -87,7 +87,7 @@ public class AuthController : ControllerBase
         {
             _context.PendingRegistrations.Add(new PendingRegistration
             {
-                Email = dto.Email,
+                Email = NormEmail(dto.Email),
                 Emri = dto.Emri,
                 Mbiemri = dto.Mbiemri ?? "",
                 PasswordHash = passwordHash,
@@ -118,7 +118,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginDto dto)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == NormEmail(dto.Email));
 
         if (user == null)
         {
@@ -131,7 +131,7 @@ public class AuthController : ControllerBase
 
             // Signed up but never entered the email code (closed the tab, code expired): without this
             // they'd be told the account doesn't exist and have no way back to the verify screen.
-            var pending = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email == dto.Email);
+            var pending = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email.ToLower() == NormEmail(dto.Email));
             if (pending != null && BCrypt.Net.BCrypt.Verify(dto.Password, pending.PasswordHash))
             {
                 pending.Code = new Random().Next(100000, 999999).ToString();
@@ -182,12 +182,12 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> VerifyEmail(VerifyEmailDto dto)
     {
         var pending = await _context.PendingRegistrations
-            .FirstOrDefaultAsync(p => p.Email == dto.Email && p.Code == dto.Code);
+            .FirstOrDefaultAsync(p => p.Email.ToLower() == NormEmail(dto.Email) && p.Code == dto.Code);
 
         if (pending == null) return BadRequest("Kod i pasakte.");
         if (pending.DataSkadimit < DateTime.UtcNow) return BadRequest("Kodi ka skaduar. Kerko nje te ri.");
 
-        if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        if (await _context.Users.AnyAsync(u => u.Email.ToLower() == NormEmail(dto.Email)))
             return BadRequest("Email-i eshte i regjistruar tashme.");
 
         var user = new User
@@ -221,7 +221,7 @@ public class AuthController : ControllerBase
     [HttpPost("resend-code")]
     public async Task<IActionResult> ResendCode(ResendDto dto)
     {
-        var pending = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email == dto.Email);
+        var pending = await _context.PendingRegistrations.FirstOrDefaultAsync(p => p.Email.ToLower() == NormEmail(dto.Email));
         if (pending == null) return NotFound("Nuk u gjet regjistrim ne pritje per kete email.");
 
         pending.Code = new Random().Next(100000, 999999).ToString();
@@ -297,7 +297,7 @@ public class AuthController : ControllerBase
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == NormEmail(dto.Email));
         if (user != null)
         {
             var code = new Random().Next(100000, 999999).ToString();
@@ -326,7 +326,7 @@ public class AuthController : ControllerBase
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == NormEmail(dto.Email));
         if (user == null) return BadRequest("Kod i pasakte ose i skaduar.");
 
         var verification = await _context.EmailVerifications
@@ -341,6 +341,8 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Fjalekalimi u ndryshua." });
     }
+
+    private static string NormEmail(string? email) => (email ?? "").Trim().ToLowerInvariant();
 
     private string GenerateToken(string email, int userId)
     {
