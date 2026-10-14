@@ -71,7 +71,7 @@ public class EmailService : IEmailService
           <div style='height:5px; background:linear-gradient(90deg,#0ea5e9,#06b6d4);'></div>
 
           <div style='padding:24px 40px; border-bottom:1px solid #ebebeb;'>
-            <img src='https://www.erental.store/logo-email.png' alt='ERental' height='26' style='height:26px; width:auto; display:block; border:0;' />
+            <img src='https://www.erental.store/logo-email.png' alt='ERental' height='44' style='height:44px; width:auto; display:block; border:0;' />
           </div>
 
           <div style='padding:40px;'>
