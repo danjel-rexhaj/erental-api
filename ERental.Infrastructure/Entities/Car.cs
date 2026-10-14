@@ -49,6 +49,9 @@ public partial class Car
     public decimal? FeeVonesaPerOre { get; set; }
     public decimal? FeeVonesaPerDite { get; set; }
 
+    // When set, the business fixes the pickup/return time and the customer cannot change it.
+    public string? OraDefault { get; set; }
+
     public DateTime? DataKrijimit { get; set; }
 
     public string[]? Amenities { get; set; }
