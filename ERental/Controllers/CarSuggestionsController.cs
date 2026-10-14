@@ -67,12 +67,21 @@ public class CarSuggestionsController : ControllerBase
         if (company == null) return BadRequest("Biznesi nuk ekziston.");
         if (company.OwnerUserId != userId) return Forbid();
 
+        // Same brand/model already suggested (pending) or already in the list (approved): no new
+        // row and no second admin ping -- editing a car re-fires this every save.
+        var value = dto.SuggestedValue.Trim();
+        var duplicate = await _context.CarSuggestions.FirstOrDefaultAsync(s =>
+            s.Type == dto.Type && s.Statusi != "rejected"
+            && s.SuggestedValue.ToLower() == value.ToLower()
+            && (dto.Type == "brand" || (s.Marka ?? "").ToLower() == (dto.Marka ?? "").ToLower()));
+        if (duplicate != null) return Ok(duplicate);
+
         var suggestion = new CarSuggestion
         {
             CompanyId = dto.CompanyId,
             Type = dto.Type,
             Marka = dto.Marka,
-            SuggestedValue = dto.SuggestedValue.Trim(),
+            SuggestedValue = value,
         };
 
         _context.CarSuggestions.Add(suggestion);
@@ -114,9 +123,33 @@ public class CarSuggestionsController : ControllerBase
         if (suggestion == null) return NotFound();
 
         suggestion.Statusi = "approved";
+
+        // Older duplicates of the same brand/model would otherwise stay in the pending list.
+        var value = suggestion.SuggestedValue.ToLower();
+        var marka = (suggestion.Marka ?? "").ToLower();
+        var duplicates = await _context.CarSuggestions
+            .Where(s => s.Id != id && s.Statusi == "pending" && s.Type == suggestion.Type && s.SuggestedValue.ToLower() == value
+                && (suggestion.Type == "brand" || (s.Marka ?? "").ToLower() == marka))
+            .ToListAsync();
+        foreach (var d in duplicates) d.Statusi = "approved";
+
         await _context.SaveChangesAsync();
 
         return Ok(suggestion);
+    }
+
+    // Public: the car form and search filters merge these into the built-in brand/model list, so
+    // an approved suggestion shows up as a normal option without a frontend deploy.
+    [HttpGet("approved")]
+    public async Task<IActionResult> GetApproved()
+    {
+        var approved = await _context.CarSuggestions
+            .Where(s => s.Statusi == "approved")
+            .OrderBy(s => s.DataKrijimit)
+            .Select(s => new { s.Type, s.Marka, s.SuggestedValue })
+            .ToListAsync();
+
+        return Ok(approved);
     }
 
     [HttpPut("{id}/reject")]
