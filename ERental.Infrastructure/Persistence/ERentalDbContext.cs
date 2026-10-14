@@ -180,6 +180,8 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.Kubatura).HasColumnName("kubatura");
             entity.Property(e => e.Cilindra).HasColumnName("cilindra");
             entity.Property(e => e.MinimumDitesh).HasColumnName("minimum_ditesh");
+            entity.Property(e => e.FeeVonesaPerOre).HasPrecision(8, 2).HasColumnName("fee_vonesa_per_ore");
+            entity.Property(e => e.FeeVonesaPerDite).HasPrecision(8, 2).HasColumnName("fee_vonesa_per_dite");
             entity.Property(e => e.DataKrijimit)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")

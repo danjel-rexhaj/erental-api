@@ -17,7 +17,7 @@ public interface IEmailService
 {
     Task SendVerificationCodeAsync(string toEmail, string emri, string code);
     Task SendBookingPendingToClientAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? carPhotoUrl = null, string? targa = null);
-    Task SendBookingRequestToBusinessAsync(string toEmail, string bizniEmri, string makina, string klientiEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null);
+    Task SendBookingRequestToBusinessAsync(string toEmail, string bizniEmri, string makina, string klientiEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null, decimal? feeVonesaPerOre = null, decimal? feeVonesaPerDite = null);
     Task SendBookingConfirmedAsync(string toEmail, string emri, string makina, string bizniEmri, string dataFillimit, string dataPerfundimit, decimal total, int bookingId, string? companyAddress, string? companyCity, string? companyPhone, string? carPhotoUrl, string? contractUrl = null, bool companyHasWhatsapp = false, string? targa = null);
     Task SendBookingCancelledAsync(string toEmail, string emri, string makina, string dataFillimit, string dataPerfundimit, int bookingId, string? carPhotoUrl = null, string? arsyeja = null);
     Task SendPaymentReceiptAsync(string toEmail, string emri, string makina, string counterpartyName, decimal amountPaid, bool eshtePagesePlote, int bookingId, bool perBiznesin, decimal totalPrice, string dataFillimit, string dataPerfundimit, decimal serviceFee = 0, decimal insuranceFee = 0);

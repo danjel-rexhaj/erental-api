@@ -202,7 +202,7 @@ public class BookingsController : ControllerBase
 
             var biznesEmail = car.Company.OwnerUser?.Email ?? car.Company.Email;
             if (biznesEmail != null)
-                await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl);
+                await _emailService.SendBookingRequestToBusinessAsync(biznesEmail, car.Company.Emri, makinaEmri, klienti?.Emri ?? "Klient", dto.DataFillimit.ToString(), dto.DataPerfundimit.ToString(), carPhotoUrl, car.FeeVonesaPerOre, car.FeeVonesaPerDite);
 
             if (shumaPaguarOnline != null)
             {

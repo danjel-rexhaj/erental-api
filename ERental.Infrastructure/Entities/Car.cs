@@ -45,6 +45,10 @@ public partial class Car
     // company-wide default (itself null = no minimum, i.e. effectively 1 day).
     public int? MinimumDitesh { get; set; }
 
+    // Optional late-return fee set by the business — either per hour or per extra day, not both.
+    public decimal? FeeVonesaPerOre { get; set; }
+    public decimal? FeeVonesaPerDite { get; set; }
+
     public DateTime? DataKrijimit { get; set; }
 
     public string[]? Amenities { get; set; }

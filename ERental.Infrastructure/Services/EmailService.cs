@@ -251,8 +251,20 @@ public class EmailService : IEmailService
     }
 
 
-    public async Task SendBookingRequestToBusinessAsync(string toEmail, string bizniEmri, string makina, string klientiEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null)
+    public async Task SendBookingRequestToBusinessAsync(string toEmail, string bizniEmri, string makina, string klientiEmri, string dataFillimit, string dataPerfundimit, string? carPhotoUrl = null, decimal? feeVonesaPerOre = null, decimal? feeVonesaPerDite = null)
     {
+        var feeBlock = "";
+        if (feeVonesaPerOre.HasValue || feeVonesaPerDite.HasValue)
+        {
+            var feeDesc = feeVonesaPerOre.HasValue
+                ? $"{feeVonesaPerOre}€/orë"
+                : $"{feeVonesaPerDite}€/ditë shtesë";
+            feeBlock = $@"
+            <div style='background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin:16px 0 0 0;'>
+                <p style='color:#92400e; font-size:12px; margin:0;'><strong>Politika juaj e vonesës:</strong> {feeDesc} · Kujtojeni klientit kur merr makinën.</p>
+            </div>";
+        }
+
         var body = $@"
             <h1 style='color:#111111; font-size:22px; font-weight:700; margin:0 0 20px 0;'>Kërkesë e re rezervimi</h1>
 
@@ -262,7 +274,8 @@ public class EmailService : IEmailService
 
             <p style='color:#717171; font-size:13px; line-height:1.6; margin:0;'>
                 Përshëndetje {bizniEmri}, hyr në panelin e biznesit për ta miratuar ose refuzuar kërkesën.
-            </p>";
+            </p>
+            {feeBlock}";
 
         var msg = MailHelper.CreateSingleEmail(From, new EmailAddress(toEmail), "Kërkesë e re rezervimi — ERental", "", Wrap(body, $"{klientiEmri} kërkoi të rezervojë {makina}"));
         await SendAsync(msg);
