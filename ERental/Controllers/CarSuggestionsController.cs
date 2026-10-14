@@ -135,6 +135,9 @@ public class CarSuggestionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        // Every open tab (car form, filters) adds the option live -- no refresh needed.
+        try { await _hub.Clients.All.SendAsync("catalogUpdated", new { kind = "car", type = suggestion.Type, marka = suggestion.Marka, suggestedValue = suggestion.SuggestedValue }); } catch { }
+
         return Ok(suggestion);
     }
 

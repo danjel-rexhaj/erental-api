@@ -62,10 +62,16 @@ public class AmenitySuggestionsController : ControllerBase
         if (company == null) return BadRequest("Biznesi nuk ekziston.");
         if (company.OwnerUserId != userId) return Forbid();
 
+        // Already suggested (pending) or already an option (approved): no new row, no second admin ping.
+        var value = dto.Suggestion.Trim();
+        var duplicate = await _context.AmenitySuggestions.FirstOrDefaultAsync(s =>
+            s.Statusi != "rejected" && s.Suggestion.Trim().ToLower() == value.ToLower());
+        if (duplicate != null) return Ok(duplicate);
+
         var suggestion = new AmenitySuggestion
         {
             CompanyId = dto.CompanyId,
-            Suggestion = dto.Suggestion.Trim(),
+            Suggestion = value,
         };
 
         _context.AmenitySuggestions.Add(suggestion);
@@ -106,9 +112,34 @@ public class AmenitySuggestionsController : ControllerBase
         if (suggestion == null) return NotFound();
 
         suggestion.Statusi = "approved";
+
+        // Older duplicates of the same text would otherwise stay in the pending list.
+        var value = suggestion.Suggestion.Trim().ToLower();
+        var duplicates = await _context.AmenitySuggestions
+            .Where(s => s.Id != id && s.Statusi == "pending" && s.Suggestion.Trim().ToLower() == value)
+            .ToListAsync();
+        foreach (var d in duplicates) d.Statusi = "approved";
+
         await _context.SaveChangesAsync();
 
+        // Every open tab (car form, car page) adds the option live -- no refresh needed.
+        try { await _hub.Clients.All.SendAsync("catalogUpdated", new { kind = "amenity", suggestion = suggestion.Suggestion }); } catch { }
+
         return Ok(suggestion);
+    }
+
+    // Public: the car form's amenity picker and the car page merge these in as an "other" category,
+    // so an approved suggestion becomes a normal checkbox without a frontend deploy.
+    [HttpGet("approved")]
+    public async Task<IActionResult> GetApproved()
+    {
+        var approved = await _context.AmenitySuggestions
+            .Where(s => s.Statusi == "approved")
+            .OrderBy(s => s.DataKrijimit)
+            .Select(s => new { s.Suggestion })
+            .ToListAsync();
+
+        return Ok(approved);
     }
 
     [HttpPut("{id}/reject")]

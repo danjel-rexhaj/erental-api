@@ -207,6 +207,15 @@ public class AuthController : ControllerBase
         _context.PendingRegistrations.Remove(pending);
         await _context.SaveChangesAsync();
 
+        // Verifying signs the user straight in, so it's logged as a successful login too --
+        // otherwise the login log shows a pre-signup "failed" attempt and never the way they got in.
+        try
+        {
+            _context.LoginLogs.Add(new LoginLog { Email = user.Email, UserId = user.UserId, IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(), Sukses = true });
+            await _context.SaveChangesAsync();
+        }
+        catch { }
+
         try { await _emailService.SendWelcomeAsync(user.Email, user.Emri); } catch (Exception ex) { Console.WriteLine($"Welcome email error: {ex.Message}"); }
 
         // Fired only here (not on /register) so the admin hears about real, email-verified accounts
