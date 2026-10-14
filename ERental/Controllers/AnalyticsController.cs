@@ -1,3 +1,4 @@
+using ERental.Hubs;
 using ERental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -174,5 +175,37 @@ public class AnalyticsController : ControllerBase
         var failedLast24h = await _context.LoginLogs.CountAsync(l => l.Sukses == false && l.DataHyrjes >= since24h);
 
         return Ok(new { logs, total, page, pageSize, failedLast24h });
+    }
+
+    [HttpGet("admin/online")]
+    [Authorize]
+    public async Task<IActionResult> GetOnline()
+    {
+        if (GetUserId() != 1) return Forbid();
+
+        // One row per visitor, not per tab: a logged-in user is keyed by account, a guest by IP + browser.
+        var visitors = PresenceTracker.Snapshot()
+            .GroupBy(c => c.UserId.HasValue ? $"u{c.UserId}" : $"g{c.Ip}|{c.UserAgent}")
+            .Select(g =>
+            {
+                var latest = g.OrderByDescending(c => c.LastSeen).First();
+                return new { latest.UserId, latest.Email, latest.Ip, latest.UserAgent, latest.Page, ConnectedAt = g.Min(c => c.ConnectedAt), latest.LastSeen, Tabs = g.Count() };
+            })
+            .OrderByDescending(v => v.UserId.HasValue)
+            .ThenByDescending(v => v.LastSeen)
+            .ToList();
+
+        var ids = visitors.Where(v => v.UserId.HasValue).Select(v => v.UserId!.Value).ToList();
+        var names = await _context.Users.Where(u => ids.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, u => (u.Emri + " " + u.Mbiemri).Trim());
+
+        var result = visitors.Select(v => new
+        {
+            v.UserId,
+            Name = v.UserId.HasValue && names.TryGetValue(v.UserId.Value, out var n) ? n : null,
+            v.Email, v.Ip, v.UserAgent, v.Page, v.ConnectedAt, v.LastSeen, v.Tabs
+        }).ToList();
+
+        return Ok(new { total = result.Count, loggedIn = result.Count(v => v.UserId.HasValue), guests = result.Count(v => !v.UserId.HasValue), visitors = result });
     }
 }
