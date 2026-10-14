@@ -10,6 +10,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record CarPriceOfferDto(int Dite, decimal CmimiTotal);
+public record CarPricePeriodDto(DateOnly DataFillimit, DateOnly DataPerfundimit, decimal CmimiDites);
 
 public record CreateCarDto(
     int CompanyId, string Marka, string Modeli, int Viti, int Km,
@@ -17,7 +18,8 @@ public record CreateCarDto(
     string Kategoria, int NumriVendeve, bool Klimatizimi, decimal CmimiDites,
     string? Pershkrimi = null, int? Kubatura = null, int? Cilindra = null, string[]? Amenities = null,
     List<CarPriceOfferDto>? PriceOffers = null, int? MinimumDitesh = null,
-    decimal? FeeVonesaPerOre = null, decimal? FeeVonesaPerDite = null, string? OraDefault = null);
+    decimal? FeeVonesaPerOre = null, decimal? FeeVonesaPerDite = null, string? OraDefault = null,
+    List<CarPricePeriodDto>? PricePeriods = null, bool? VetemPagesePlote = null);
 
 public record CreateBlockDto(DateOnly DataFillimit, DateOnly DataPerfundimit, string? Shenim);
 public record AdminUpdateCarDto(decimal? CmimiDites, string? Statusi);
@@ -38,6 +40,13 @@ public class CarsController : ControllerBase
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    // Drops malformed rows (end before start, non-positive price) instead of failing the whole save.
+    private static List<CarPricePeriod> ToPricePeriods(int carId, List<CarPricePeriodDto>? dtos) =>
+        (dtos ?? new List<CarPricePeriodDto>())
+            .Where(p => p.DataPerfundimit >= p.DataFillimit && p.CmimiDites > 0)
+            .Select(p => new CarPricePeriod { CarId = carId, DataFillimit = p.DataFillimit, DataPerfundimit = p.DataPerfundimit, CmimiDites = p.CmimiDites })
+            .ToList();
 
     // Attaches average rating / review count / active car count onto each car's Company navigation,
     // computed via grouped queries instead of Includes so we never ship every review/car back down.
@@ -77,6 +86,8 @@ public class CarsController : ControllerBase
             .Include(c => c.CarPhotos)
             .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
+            .Include(c => c.PricePeriods)
+            .Include(c => c.Company).ThenInclude(co => co!.SeasonRules)
             .ToListAsync();
         await AttachCompanyStatsAsync(cars);
         return Ok(cars);
@@ -100,6 +111,8 @@ public class CarsController : ControllerBase
             .Include(c => c.CarPhotos)
             .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
+            .Include(c => c.PricePeriods)
+            .Include(c => c.Company).ThenInclude(co => co!.SeasonRules)
             .OrderByDescending(c => c.CarId)
             .ToListAsync();
 
@@ -119,6 +132,8 @@ public class CarsController : ControllerBase
             .Include(c => c.CarPhotos)
             .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.PriceOffers)
+            .Include(c => c.PricePeriods)
+            .Include(c => c.Company).ThenInclude(co => co!.SeasonRules)
             .FirstOrDefaultAsync(c => c.CarId == id);
 
         if (car == null || car.Company?.EshteVerifikuar != true) return NotFound();
@@ -183,6 +198,7 @@ public class CarsController : ControllerBase
             FeeVonesaPerOre = dto.FeeVonesaPerOre,
             FeeVonesaPerDite = dto.FeeVonesaPerDite,
             OraDefault = dto.OraDefault,
+            VetemPagesePlote = dto.VetemPagesePlote ?? false,
             Statusi = "active"
         };
 
@@ -197,6 +213,14 @@ public class CarsController : ControllerBase
             _context.CarPriceOffers.AddRange(offers);
             await _context.SaveChangesAsync();
             car.PriceOffers = offers;
+        }
+
+        var periods = ToPricePeriods(car.CarId, dto.PricePeriods);
+        if (periods.Count > 0)
+        {
+            _context.CarPricePeriods.AddRange(periods);
+            await _context.SaveChangesAsync();
+            car.PricePeriods = periods;
         }
 
         return Ok(car);
@@ -234,6 +258,7 @@ public class CarsController : ControllerBase
         car.FeeVonesaPerOre = dto.FeeVonesaPerOre;
         car.FeeVonesaPerDite = dto.FeeVonesaPerDite;
         car.OraDefault = dto.OraDefault;
+        car.VetemPagesePlote = dto.VetemPagesePlote ?? false;
 
         _context.CarPriceOffers.RemoveRange(_context.CarPriceOffers.Where(o => o.CarId == id));
         var newOffers = (dto.PriceOffers ?? new List<CarPriceOfferDto>())
@@ -241,8 +266,13 @@ public class CarsController : ControllerBase
             .ToList();
         if (newOffers.Count > 0) _context.CarPriceOffers.AddRange(newOffers);
 
+        _context.CarPricePeriods.RemoveRange(_context.CarPricePeriods.Where(p => p.CarId == id));
+        var newPeriods = ToPricePeriods(id, dto.PricePeriods);
+        if (newPeriods.Count > 0) _context.CarPricePeriods.AddRange(newPeriods);
+
         await _context.SaveChangesAsync();
         car.PriceOffers = newOffers;
+        car.PricePeriods = newPeriods;
         return Ok(car);
     }
 
@@ -318,6 +348,8 @@ public class CarsController : ControllerBase
             .Include(c => c.Company).ThenInclude(co => co!.DeliveryZones)
             .Include(c => c.CarAvailabilityBlocks)
             .Include(c => c.PriceOffers)
+            .Include(c => c.PricePeriods)
+            .Include(c => c.Company).ThenInclude(co => co!.SeasonRules)
             .ToListAsync();
 
         var nearMissThreshold = dataFillimit.AddDays(3);

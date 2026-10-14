@@ -30,6 +30,10 @@ public partial class ERentalDbContext : DbContext
 
     public virtual DbSet<CarPriceOffer> CarPriceOffers { get; set; }
 
+    public virtual DbSet<CarPricePeriod> CarPricePeriods { get; set; }
+
+    public virtual DbSet<CompanySeasonRule> CompanySeasonRules { get; set; }
+
     public virtual DbSet<Company> Companies { get; set; }
 
     public virtual DbSet<CompanyDeliveryZone> CompanyDeliveryZones { get; set; }
@@ -183,6 +187,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.FeeVonesaPerOre).HasPrecision(8, 2).HasColumnName("fee_vonesa_per_ore");
             entity.Property(e => e.FeeVonesaPerDite).HasPrecision(8, 2).HasColumnName("fee_vonesa_per_dite");
             entity.Property(e => e.OraDefault).HasMaxLength(10).HasColumnName("ora_default");
+            entity.Property(e => e.VetemPagesePlote).HasColumnName("vetem_pagese_plote");
             entity.Property(e => e.DataKrijimit)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
@@ -242,6 +247,36 @@ public partial class ERentalDbContext : DbContext
             entity.HasOne(d => d.Car).WithMany(p => p.PriceOffers)
                 .HasForeignKey(d => d.CarId)
                 .HasConstraintName("car_price_offers_car_id_fkey");
+        });
+
+        modelBuilder.Entity<CarPricePeriod>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("car_price_periods_pkey");
+            entity.ToTable("car_price_periods");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CarId).HasColumnName("car_id");
+            entity.Property(e => e.DataFillimit).HasColumnName("data_fillimit");
+            entity.Property(e => e.DataPerfundimit).HasColumnName("data_perfundimit");
+            entity.Property(e => e.CmimiDites).HasPrecision(8, 2).HasColumnName("cmimi_dites");
+            entity.HasOne(d => d.Car).WithMany(p => p.PricePeriods)
+                .HasForeignKey(d => d.CarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("car_price_periods_car_id_fkey");
+        });
+
+        modelBuilder.Entity<CompanySeasonRule>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("company_season_rules_pkey");
+            entity.ToTable("company_season_rules");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CompanyId).HasColumnName("company_id");
+            entity.Property(e => e.DataFillimit).HasColumnName("data_fillimit");
+            entity.Property(e => e.DataPerfundimit).HasColumnName("data_perfundimit");
+            entity.Property(e => e.ShtesaDites).HasPrecision(8, 2).HasColumnName("shtesa_dites");
+            entity.HasOne(d => d.Company).WithMany(p => p.SeasonRules)
+                .HasForeignKey(d => d.CompanyId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("company_season_rules_company_id_fkey");
         });
 
         modelBuilder.Entity<CarPhoto>(entity =>

@@ -1,3 +1,4 @@
+using ERental.Services;
 ﻿using ERental.Application.Interfaces;
 using ERental.Infrastructure.Entities;
 using ERental.Infrastructure.Persistence;
@@ -54,7 +55,7 @@ public class PaymentsController : ControllerBase
         if (user == null || string.IsNullOrWhiteSpace(user.PatentaFotoPara) || string.IsNullOrWhiteSpace(user.PatentaFotoMbrapa))
             return BadRequest("Duhet te shtosh foton e patentes (para dhe mbrapa) ne profilin tend para se te rezervosh.");
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).ThenInclude(co => co.OwnerUser).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.PricePeriods).Include(c => c.Company).ThenInclude(co => co.OwnerUser).Include(c => c.Company).ThenInclude(co => co.SeasonRules).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         var demoMismatch = DemoMismatch(user, car);
@@ -76,13 +77,16 @@ public class PaymentsController : ControllerBase
             sigurimi = car.Company.CmimiSigurimit.Value;
         }
 
-        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
-        decimal rentalTotal = offer?.CmimiTotal ?? dite * car.CmimiDites;
+        if (dto.Method == "deposit" && car.VetemPagesePlote)
+            return BadRequest("Kjo makine pranon vetem pagese te plote.");
+
+        var quote = CarPricing.Compute(car, dto.DataFillimit, dto.DataPerfundimit);
+        decimal rentalTotal = quote.RentalTotal;
         decimal customerTotal = rentalTotal + dite * PlatformMarkup;
         // Insurance only rides along with a full online payment -- with a deposit, it's collected
         // in cash at pickup alongside the rest of the rental, same as the un-deposited rental balance,
         // so a no-show only costs the client the (non-refundable) deposit, not the insurance too.
-        decimal shuma = dto.Method == "deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
+        decimal shuma = dto.Method == "deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
 
         var result = await _payPal.ForDemo(user.IsDemo).CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
@@ -104,7 +108,7 @@ public class PaymentsController : ControllerBase
         var user = await _context.Users.FindAsync(GetUserId());
         if (user == null) return Unauthorized();
 
-        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.Company).ThenInclude(co => co.OwnerUser).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.PriceOffers).Include(c => c.PricePeriods).Include(c => c.Company).ThenInclude(co => co.OwnerUser).Include(c => c.Company).ThenInclude(co => co.SeasonRules).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         var demoMismatch = DemoMismatch(user, car);
@@ -126,10 +130,13 @@ public class PaymentsController : ControllerBase
             sigurimi = car.Company.CmimiSigurimit.Value;
         }
 
-        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == dite);
-        decimal rentalTotal = offer?.CmimiTotal ?? dite * car.CmimiDites;
+        if (dto.Method == "deposit" && car.VetemPagesePlote)
+            return BadRequest("Kjo makine pranon vetem pagese te plote.");
+
+        var quote = CarPricing.Compute(car, dto.DataFillimit, dto.DataPerfundimit);
+        decimal rentalTotal = quote.RentalTotal;
         decimal customerTotal = rentalTotal + dite * PlatformMarkup;
-        decimal pritshme = dto.Method == "deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
+        decimal pritshme = dto.Method == "deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
 
         var payPal = _payPal.ForDemo(user.IsDemo);
         var result = await payPal.CaptureOrderAsync(dto.PaypalOrderId);

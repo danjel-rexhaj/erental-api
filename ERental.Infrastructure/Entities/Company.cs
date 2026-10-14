@@ -89,6 +89,8 @@ public partial class Company
 
     public virtual ICollection<CompanyDeliveryZone> DeliveryZones { get; set; } = new List<CompanyDeliveryZone>();
 
+    public virtual ICollection<CompanySeasonRule> SeasonRules { get; set; } = new List<CompanySeasonRule>();
+
     public virtual ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();
 
     public virtual ICollection<CompanyVerification> CompanyVerifications { get; set; } = new List<CompanyVerification>();

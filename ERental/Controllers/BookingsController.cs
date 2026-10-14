@@ -1,3 +1,4 @@
+using ERental.Services;
 ﻿using ERental.Application.Interfaces;
 using ERental.Hubs;
 using ERental.Infrastructure.Entities;
@@ -85,7 +86,7 @@ public class BookingsController : ControllerBase
     {
         var userId = GetUserId();
 
-        var car = await _context.Cars.Include(c => c.Company).ThenInclude(co => co.OwnerUser).Include(c => c.CarPhotos).Include(c => c.PriceOffers).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
+        var car = await _context.Cars.Include(c => c.Company).ThenInclude(co => co.OwnerUser).Include(c => c.CarPhotos).Include(c => c.PriceOffers).Include(c => c.PricePeriods).Include(c => c.Company).ThenInclude(co => co.SeasonRules).FirstOrDefaultAsync(c => c.CarId == dto.CarId);
         if (car == null) return NotFound("Makina nuk ekziston.");
 
         var klienti = await _context.Users.FindAsync(userId);
@@ -108,14 +109,16 @@ public class BookingsController : ControllerBase
         var paymentMethod = dto.PaymentMethod;
         if (paymentMethod != "paypal_deposit" && paymentMethod != "paypal_full")
             return BadRequest("Duhet zgjedhur nje menyre pagese (depozite ose e plote).");
+        if (paymentMethod == "paypal_deposit" && car.VetemPagesePlote)
+            return BadRequest("Kjo makine pranon vetem pagese te plote.");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         int minDiteRezervimi = car.MinimumDitesh ?? car.Company?.MinimumDitesh ?? 1;
         if (diteRezervimi < minDiteRezervimi)
             return BadRequest($"Minimumi i qerase per kete makine eshte {minDiteRezervimi} dite.");
 
-        var offer = car.PriceOffers.FirstOrDefault(o => o.Dite == diteRezervimi);
-        decimal cmimiTotal = offer?.CmimiTotal ?? diteRezervimi * car.CmimiDites;
+        var quote = CarPricing.Compute(car, dto.DataFillimit, dto.DataPerfundimit);
+        decimal cmimiTotal = quote.RentalTotal;
 
         decimal sigurimi = 0;
         if (dto.DoSigurim)
@@ -140,7 +143,7 @@ public class BookingsController : ControllerBase
 
             // Insurance only rides along with a full online payment, not a deposit -- see the same
             // note in PaymentsController.
-            var pritshme = paymentMethod == "paypal_deposit" ? car.CmimiDites + PlatformMarkup : customerTotal + sigurimi;
+            var pritshme = paymentMethod == "paypal_deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
             if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 

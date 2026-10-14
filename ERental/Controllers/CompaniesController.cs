@@ -18,6 +18,7 @@ public record UpdateCompanyDto(
     decimal? CmimiDergesesJashtOrarit = null, string[]? VendetKufitare = null,
     string? VonjesaPolicy = null, decimal? VonjesaAmount = null);
 public record DeliveryZoneDto(string Zona, decimal Cmimi);
+public record SeasonRuleDto(DateOnly DataFillimit, DateOnly DataPerfundimit, decimal ShtesaDites);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
 
 [ApiController]
@@ -509,5 +510,51 @@ public class CompaniesController : ControllerBase
             .ToListAsync();
 
         return Ok(pending);
+    }
+
+    // Company-wide seasonal surcharge: +ShtesaDites per day on every car for days in the range.
+    // Priced in Services/CarPricing.cs (and src/carData.js on the frontend).
+    [HttpGet("my-company/seasons")]
+    [Authorize]
+    public async Task<IActionResult> GetMySeasons()
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == GetUserId());
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        var seasons = await _context.CompanySeasonRules
+            .Where(s => s.CompanyId == company.CompanyId)
+            .OrderBy(s => s.DataFillimit)
+            .Select(s => new { s.Id, s.DataFillimit, s.DataPerfundimit, s.ShtesaDites })
+            .ToListAsync();
+        return Ok(seasons);
+    }
+
+    [HttpPost("my-company/seasons")]
+    [Authorize]
+    public async Task<IActionResult> AddMySeason(SeasonRuleDto dto)
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == GetUserId());
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+        if (dto.DataPerfundimit < dto.DataFillimit) return BadRequest("Data e mbarimit duhet te jete pas dates se fillimit.");
+        if (dto.ShtesaDites <= 0) return BadRequest("Shtesa per dite duhet te jete me e madhe se 0.");
+
+        var rule = new CompanySeasonRule { CompanyId = company.CompanyId, DataFillimit = dto.DataFillimit, DataPerfundimit = dto.DataPerfundimit, ShtesaDites = dto.ShtesaDites };
+        _context.CompanySeasonRules.Add(rule);
+        await _context.SaveChangesAsync();
+        return Ok(new { rule.Id, rule.DataFillimit, rule.DataPerfundimit, rule.ShtesaDites });
+    }
+
+    [HttpDelete("my-company/seasons/{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteMySeason(int id)
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.OwnerUserId == GetUserId());
+        if (company == null) return NotFound("Nuk ke asnje biznes te regjistruar.");
+
+        var rule = await _context.CompanySeasonRules.FirstOrDefaultAsync(s => s.Id == id && s.CompanyId == company.CompanyId);
+        if (rule == null) return NotFound();
+        _context.CompanySeasonRules.Remove(rule);
+        await _context.SaveChangesAsync();
+        return Ok();
     }
 }

@@ -69,6 +69,11 @@ public partial class Car
 
     public virtual ICollection<CarPriceOffer> PriceOffers { get; set; } = new List<CarPriceOffer>();
 
+    public virtual ICollection<CarPricePeriod> PricePeriods { get; set; } = new List<CarPricePeriod>();
+
+    // Business requires the whole rental paid online for this car (no deposit option).
+    public bool VetemPagesePlote { get; set; }
+
     public virtual ICollection<CarView> CarViews { get; set; } = new List<CarView>();
 
     public virtual Company Company { get; set; } = null!;
