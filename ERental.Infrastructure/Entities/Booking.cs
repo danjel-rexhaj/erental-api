@@ -21,6 +21,13 @@ public partial class Booking
 
     public string? OraKthimit { get; set; }
 
+    // Private-bucket key of the flight ticket (photo/PDF), required when Company.KerkoBileten.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? BiletaAvionit { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool HasBiletaAvionit => !string.IsNullOrEmpty(BiletaAvionit);
+
     public decimal CmimiTotal { get; set; }
 
     public DateTime? DataKrijimit { get; set; }

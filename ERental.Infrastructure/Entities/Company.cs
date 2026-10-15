@@ -77,6 +77,9 @@ public partial class Company
     public string? VonjesaPolicy { get; set; }
     public decimal? VonjesaAmount { get; set; }
 
+    // Business requires the customer to upload their flight ticket when booking.
+    public bool KerkoBileten { get; set; }
+
     // Bank details for commission payouts — never serialized by default (public endpoints like
     // GetCars/GetCompanies return this entity as-is); only exposed via explicit owner/admin
     // projections in CompaniesController.

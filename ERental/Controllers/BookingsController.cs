@@ -11,7 +11,7 @@ using System.Security.Claims;
 
 namespace ERental.Controllers;
 
-public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? OraMarrjes = null, string? OraKthimit = null, string? PaymentMethod = null, string? PaypalCaptureId = null, bool DoSigurim = false);
+public record CreateBookingDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string? OraMarrjes = null, string? OraKthimit = null, string? PaymentMethod = null, string? PaypalCaptureId = null, bool DoSigurim = false, string? BiletaKey = null);
 public record CancelBookingDto(string? Reason);
 
 [ApiController]
@@ -40,6 +40,48 @@ public class BookingsController : ControllerBase
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    // Ticket keys come back from the client, so only accept ones this user actually uploaded.
+    public static bool IsOwnTicketKey(string? key, int userId) =>
+        !string.IsNullOrWhiteSpace(key) && key.StartsWith($"users/{userId}/bileta/");
+
+    // Uploaded before payment (the booking only exists after the PayPal capture), returns the
+    // private-bucket key the client then sends with the order and the booking.
+    [HttpPost("flight-ticket")]
+    [Authorize]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    public async Task<IActionResult> UploadFlightTicket(IFormFile? file)
+    {
+        if (file == null || file.Length == 0) return BadRequest("Nuk u dergua asnje skedar.");
+        var ok = file.ContentType.StartsWith("image/") || file.ContentType == "application/pdf";
+        if (!ok) return BadRequest("Bileta duhet te jete foto ose PDF.");
+
+        var userId = GetUserId();
+        using var stream = file.OpenReadStream();
+        var key = await _privateFileService.UploadAsync(stream, file.FileName, file.ContentType, $"users/{userId}/bileta");
+        return Ok(new { key });
+    }
+
+    // Readable by the customer, the business that owns the car, and the admin -- never a public URL.
+    [HttpGet("{id}/flight-ticket")]
+    [Authorize]
+    public async Task<IActionResult> GetFlightTicket(int id)
+    {
+        var userId = GetUserId();
+        var booking = await _context.Bookings.Include(b => b.Car).ThenInclude(c => c.Company).FirstOrDefaultAsync(b => b.BookingId == id);
+        if (booking == null || string.IsNullOrEmpty(booking.BiletaAvionit)) return NotFound();
+        if (booking.UserId != userId && booking.Car.Company.OwnerUserId != userId && userId != 1) return Forbid();
+
+        try
+        {
+            var (stream, contentType) = await _privateFileService.DownloadAsync(booking.BiletaAvionit);
+            return File(stream, contentType ?? "application/octet-stream");
+        }
+        catch (Amazon.S3.AmazonS3Exception)
+        {
+            return NotFound();
+        }
+    }
 
     private static readonly string[] MuajtSq = { "Janar", "Shkurt", "Mars", "Prill", "Maj", "Qershor", "Korrik", "Gusht", "Shtator", "Tetor", "Nentor", "Dhjetor" };
     private static string FormatDateSq(DateOnly d) => $"{d.Day} {MuajtSq[d.Month - 1]} {d.Year}";
@@ -111,6 +153,8 @@ public class BookingsController : ControllerBase
             return BadRequest("Duhet zgjedhur nje menyre pagese (depozite ose e plote).");
         if (paymentMethod == "paypal_deposit" && car.VetemPagesePlote)
             return BadRequest("Kjo makine pranon vetem pagese te plote.");
+        if (car.Company?.KerkoBileten == true && !IsOwnTicketKey(dto.BiletaKey, userId))
+            return BadRequest("Ky biznes kerkon biletën e avionit. Ngarko biletën para se te rezervosh.");
 
         int diteRezervimi = dto.DataPerfundimit.DayNumber - dto.DataFillimit.DayNumber;
         int minDiteRezervimi = car.MinimumDitesh ?? car.Company?.MinimumDitesh ?? 1;
@@ -167,6 +211,7 @@ public class BookingsController : ControllerBase
             OraMarrjes = dto.OraMarrjes,
             OraKthimit = dto.OraKthimit,
             CmimiTotal = cmimiTotal,
+            BiletaAvionit = IsOwnTicketKey(dto.BiletaKey, userId) ? dto.BiletaKey : null,
             CmimiSigurimit = sigurimi > 0 ? sigurimi : null,
             Statusi = "pending",
             PaymentMethod = paymentMethod,
@@ -662,6 +707,7 @@ public class BookingsController : ControllerBase
                 b.ArsyejaRefuzimit,
                 b.PaymentMethod,
                 b.IdVerifikuar,
+                HasBiletaAvionit = b.BiletaAvionit != null,
                 Car = new { b.Car.Marka, b.Car.Modeli, b.Car.Targa, b.Car.CmimiDites },
                 Klienti = new { b.User.Emri, b.User.Mbiemri, b.User.Telefoni, b.User.Email, b.User.HasWhatsapp },
                 Payment = b.Payments.Select(p => new { p.ShumaPaguarOnline, p.PaypalCaptureId, p.CardLast4, p.Komisioni, p.ShumaBiznesit }).FirstOrDefault()

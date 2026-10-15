@@ -16,7 +16,7 @@ public record UpdateCompanyDto(
     bool? OfronDergimMakine = null, int? MinimumDitesh = null, decimal? CmimiSigurimit = null,
     bool? OfronKmTePakufizuara = null, decimal? CmimiShoferiShtese = null, decimal? CmimiSediljesBebe = null,
     decimal? CmimiDergesesJashtOrarit = null, string[]? VendetKufitare = null,
-    string? VonjesaPolicy = null, decimal? VonjesaAmount = null);
+    string? VonjesaPolicy = null, decimal? VonjesaAmount = null, bool? KerkoBileten = null);
 public record DeliveryZoneDto(string Zona, decimal Cmimi);
 public record SeasonRuleDto(DateOnly DataFillimit, DateOnly DataPerfundimit, decimal ShtesaDites);
 public record AdminUpdateCompanyDto(string Emri, string? Telefoni, string? Adresa, string? Qyteti, string? Statusi);
@@ -52,6 +52,7 @@ public class CompaniesController : ControllerBase
         c.BillingModel, c.Statusi, c.OwnerUserId, c.LogoUrl, c.Latitude, c.Longitude,
         c.AllowCashPayment, c.AvgRating, c.ReviewCount, c.CarCount, c.Iban, c.OfronDergimMakine, c.MinimumDitesh, c.CmimiSigurimit,
         c.OfronKmTePakufizuara, c.CmimiShoferiShtese, c.CmimiSediljesBebe, c.CmimiDergesesJashtOrarit, c.VendetKufitare,
+        c.VonjesaPolicy, c.VonjesaAmount, c.KerkoBileten,
         DeliveryZones = c.DeliveryZones.Select(z => new { z.Id, z.Zona, z.Cmimi })
     };
 
@@ -268,6 +269,7 @@ public class CompaniesController : ControllerBase
         company.CmimiSigurimit = dto.CmimiSigurimit;
         company.VonjesaPolicy = string.IsNullOrEmpty(dto.VonjesaPolicy) ? null : dto.VonjesaPolicy;
         company.VonjesaAmount = dto.VonjesaAmount;
+        company.KerkoBileten = dto.KerkoBileten ?? false;
         if (dto.OfronKmTePakufizuara.HasValue)
             company.OfronKmTePakufizuara = dto.OfronKmTePakufizuara.Value;
         company.CmimiShoferiShtese = dto.CmimiShoferiShtese;

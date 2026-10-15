@@ -97,6 +97,7 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.DataPerfundimit).HasColumnName("data_perfundimit");
             entity.Property(e => e.OraMarrjes).HasColumnName("ora_marrjes");
             entity.Property(e => e.OraKthimit).HasColumnName("ora_kthimit");
+            entity.Property(e => e.BiletaAvionit).HasColumnName("bileta_avionit");
             entity.Property(e => e.IsDemo).HasColumnName("is_demo");
             entity.Property(e => e.Statusi)
                 .HasMaxLength(20)
@@ -392,6 +393,7 @@ public partial class ERentalDbContext : DbContext
                 .HasColumnName("vendet_kufitare");
             entity.Property(e => e.VonjesaPolicy).HasMaxLength(10).HasColumnName("vonesa_policy");
             entity.Property(e => e.VonjesaAmount).HasPrecision(8, 2).HasColumnName("vonesa_amount");
+            entity.Property(e => e.KerkoBileten).HasColumnName("kerko_bileten");
             entity.Ignore(e => e.AvgRating);
             entity.Ignore(e => e.ReviewCount);
             entity.Ignore(e => e.CarCount);

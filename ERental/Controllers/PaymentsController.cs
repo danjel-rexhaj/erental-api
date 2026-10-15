@@ -10,7 +10,7 @@ using System.Security.Claims;
 namespace ERental.Controllers;
 
 public record CapturePaymentDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string PaypalOrderId, bool DoSigurim = false);
-public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string? ReturnUrl = null, string? CancelUrl = null, bool DoSigurim = false);
+public record CreateOrderDto(int CarId, DateOnly DataFillimit, DateOnly DataPerfundimit, string Method, string? ReturnUrl = null, string? CancelUrl = null, bool DoSigurim = false, string? BiletaKey = null);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -79,6 +79,8 @@ public class PaymentsController : ControllerBase
 
         if (dto.Method == "deposit" && car.VetemPagesePlote)
             return BadRequest("Kjo makine pranon vetem pagese te plote.");
+        if (car.Company?.KerkoBileten == true && !BookingsController.IsOwnTicketKey(dto.BiletaKey, user.UserId))
+            return BadRequest("Ky biznes kerkon biletën e avionit. Ngarko biletën para se te paguash.");
 
         var quote = CarPricing.Compute(car, dto.DataFillimit, dto.DataPerfundimit);
         decimal rentalTotal = quote.RentalTotal;
