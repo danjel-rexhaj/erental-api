@@ -29,5 +29,9 @@ public partial class Payment
 
     public string? CardLast4 { get; set; }
 
+    // Client credit spent on this booking (already subtracted from ShumaPaguarOnline and
+    // Komisioni); handed back to the client if the payment is refunded.
+    public decimal? KrediPerdorur { get; set; }
+
     public virtual Booking Booking { get; set; } = null!;
 }

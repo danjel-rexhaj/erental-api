@@ -200,6 +200,7 @@ public class AuthController : ControllerBase
             HasWhatsapp = pending.HasWhatsapp,
             Kombesia = pending.Kombesia,
             KodPromocional = pending.KodPromocional,
+            Kredi = PromoCredit(pending.KodPromocional),
             EmailVerified = true
         };
 
@@ -352,6 +353,10 @@ public class AuthController : ControllerBase
     }
 
     private static string NormEmail(string? email) => (email ?? "").Trim().ToLowerInvariant();
+
+    // October promo: signing up with TETOR (through 31 Oct 2026) starts the account with 5€ credit.
+    private static decimal PromoCredit(string? kod) =>
+        kod == "TETOR" && DateTime.UtcNow < new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc) ? 5m : 0m;
 
     private string GenerateToken(string email, int userId)
     {

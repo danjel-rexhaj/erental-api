@@ -43,6 +43,10 @@ public partial class User
 
     public string? KodPromocional { get; set; }
 
+    // Platform credit in EUR (e.g. 5€ from the TETOR sign-up promo). Taken off the online payment
+    // of the next booking automatically; the platform absorbs it, the business is paid in full.
+    public decimal Kredi { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<Company> Companies { get; set; } = new List<Company>();

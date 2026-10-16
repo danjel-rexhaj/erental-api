@@ -177,6 +177,7 @@ public class BookingsController : ControllerBase
         decimal customerTotal = cmimiTotal + diteRezervimi * PlatformMarkup;
         decimal? shumaPaguarOnline;
         string? cardLast4;
+        decimal krediPerdorur;
         {
             if (string.IsNullOrWhiteSpace(dto.PaypalCaptureId))
                 return BadRequest("Mungon konfirmimi i pageses.");
@@ -188,6 +189,8 @@ public class BookingsController : ControllerBase
             // Insurance only rides along with a full online payment, not a deposit -- see the same
             // note in PaymentsController.
             var pritshme = paymentMethod == "paypal_deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
+            krediPerdorur = PaymentsController.CreditApplied(klienti, pritshme);
+            pritshme -= krediPerdorur;
             if (capture.Amount == null || Math.Abs(capture.Amount.Value - pritshme) > 0.01m)
                 return BadRequest("Shuma e paguar nuk perputhet me rezervimin.");
 
@@ -219,16 +222,20 @@ public class BookingsController : ControllerBase
         };
 
         _context.Bookings.Add(booking);
+        // Credit is spent in the same save as the booking, so it can't be used twice.
+        klienti.Kredi -= krediPerdorur;
         await _context.SaveChangesAsync();
 
         {
             // Businesses keep the full rental price (and insurance, if selected); PlatformMarkup
-            // is what the customer pays on top — it is the platform's revenue.
+            // is what the customer pays on top — it is the platform's revenue, minus any credit
+            // the client spent (the platform covers that, never the business).
             _context.Payments.Add(new Payment
             {
                 BookingId = booking.BookingId,
                 ShumaTotale = customerTotal + sigurimi,
-                Komisioni = diteRezervimi * PlatformMarkup,
+                Komisioni = diteRezervimi * PlatformMarkup - krediPerdorur,
+                KrediPerdorur = krediPerdorur > 0 ? krediPerdorur : null,
                 ShumaBiznesit = cmimiTotal + sigurimi,
                 ShumaPaguarOnline = shumaPaguarOnline,
                 MetodaPageses = paymentMethod,
@@ -634,6 +641,14 @@ public class BookingsController : ControllerBase
             else
             {
                 payment.Statusi = "refunded";
+            }
+
+            // Money back means credit back too; a non-refundable cancellation keeps it spent.
+            if (payment.Statusi == "refunded" && payment.KrediPerdorur is > 0)
+            {
+                var klienti = await _context.Users.FindAsync(booking.UserId);
+                if (klienti != null) klienti.Kredi += payment.KrediPerdorur.Value;
+                payment.KrediPerdorur = null;
             }
         }
 

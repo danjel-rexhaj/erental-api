@@ -41,6 +41,12 @@ public class PaymentsController : ControllerBase
         return null;
     }
 
+    // How much of the client's credit goes toward an online payment of `shuma`. PayPal needs a
+    // positive amount, so at least 1€ is always left to pay. Same rule in create-order, capture and
+    // POST /Bookings, so all three agree on the amount actually charged.
+    internal static decimal CreditApplied(User user, decimal shuma) =>
+        user.Kredi <= 0 ? 0m : Math.Min(user.Kredi, Math.Max(0m, shuma - 1m));
+
     // Creates the PayPal order server-side (amount computed from the car/dates, never trusting the
     // client). When returnUrl/cancelUrl are given, PayPal's redirect-based checkout is used â€” the
     // frontend sends the browser to the returned approveUrl instead of rendering an inline lightbox.
@@ -89,6 +95,7 @@ public class PaymentsController : ControllerBase
         // in cash at pickup alongside the rest of the rental, same as the un-deposited rental balance,
         // so a no-show only costs the client the (non-refundable) deposit, not the insurance too.
         decimal shuma = dto.Method == "deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
+        shuma -= CreditApplied(user, shuma);
 
         var result = await _payPal.ForDemo(user.IsDemo).CreateOrderAsync(shuma, "EUR", dto.ReturnUrl, dto.CancelUrl);
         if (!result.Success)
@@ -139,6 +146,7 @@ public class PaymentsController : ControllerBase
         decimal rentalTotal = quote.RentalTotal;
         decimal customerTotal = rentalTotal + dite * PlatformMarkup;
         decimal pritshme = dto.Method == "deposit" ? quote.FirstDayPrice + PlatformMarkup : customerTotal + sigurimi;
+        pritshme -= CreditApplied(user, pritshme);
 
         var payPal = _payPal.ForDemo(user.IsDemo);
         var result = await payPal.CaptureOrderAsync(dto.PaypalOrderId);

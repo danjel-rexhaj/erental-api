@@ -605,6 +605,9 @@ public partial class ERentalDbContext : DbContext
             entity.Property(e => e.CardLast4)
                 .HasMaxLength(4)
                 .HasColumnName("card_last4");
+            entity.Property(e => e.KrediPerdorur)
+                .HasPrecision(10, 2)
+                .HasColumnName("kredi_perdorur");
 
             entity.HasOne(d => d.Booking).WithMany(p => p.Payments)
                 .HasForeignKey(d => d.BookingId)
@@ -757,6 +760,9 @@ public partial class ERentalDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("kombesia");
             entity.Property(e => e.IsDemo).HasColumnName("is_demo");
+            entity.Property(e => e.Kredi)
+                .HasPrecision(10, 2)
+                .HasColumnName("kredi");
         });
 
         modelBuilder.Entity<WhatsappVerification>(entity =>
